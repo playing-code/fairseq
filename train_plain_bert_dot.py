@@ -127,14 +127,14 @@ def train(model,optimizer, args):
     cuda_list=range(args.size)
     #model.cuda(cudaid)
     # accumulation_steps=40
-    accumulation_steps=int(args.batch_size/args.size/12)
+    accumulation_steps=int(args.batch_size/args.size/8)
     #accumulation_steps=1
     model = nn.DataParallel(model, device_ids=cuda_list)
     accum_batch_loss=0
     #train_file='train_ms_roberta_plain_pair_sample_shuffle.txt'
     #train_file='train_ms_roberta_plain_pair_sample_large_new_shuffle.txt'
     #train_file='train_ms_roberta.txt'
-    iterator=NewsIterator(batch_size=12*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file))
+    iterator=NewsIterator(batch_size=8*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file))
     train_file=os.path.join(args.data_dir, args.data_file)  
     #for epoch in range(0,100):
     batch_t=0
