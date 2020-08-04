@@ -506,83 +506,73 @@ class NewsIterator(object):
         all_his=[]
         all_can=[]
         data_index_record=''
-        batch_size=1
+        batch_size=48
 
         # with tf.gfile.GFile(infile, "r") as rd:
-        with open(infile, "r") as rd:
-            for line in rd:
+        #with open(infile, "r") as rd:
+        rd=open(infile, "r").readlines()
+        for line in rd:
 
-                (
-                    label,
-                    imp_index,
-                    user_index,
-                    candidate_news_index,
-                    # click_news_index,
-                    # all_his_t,
-                    # all_can_t,
-                    # data_size,
-                ) = self.parser_one_line(line)
-                #batch_size=data_size[0]
-                candidate_news_indexes.append(candidate_news_index)
-                #candidate_news_indexes=candidate_news_index
+            (
+                label,
+                imp_index,
+                user_index,
+                candidate_news_index,
+                # click_news_index,
+                # all_his_t,
+                # all_can_t,
+                # data_size,
+            ) = self.parser_one_line(line)
+            #batch_size=data_size[0]
+            candidate_news_indexes.append(candidate_news_index)
+            #candidate_news_indexes=candidate_news_index
 
-                candidate_news_indexes=np.array(candidate_news_indexes)
-                #print('???',candidate_news_indexes)
-                candidate_news_indexes=candidate_news_indexes.reshape(-1,1,len(candidate_news_index[0]))
+            imp_indexes.append(imp_index)
+            user_indexes.append(user_index)
+            label_list.append(label)
 
-                # if len(click_news_indexes)==0:
-                #     click_news_indexes.append(click_news_index)
-                #     all_his.append(all_his_t)
-
-                # imp_indexes.append(imp_index)
-                # user_indexes.append(user_index)
-                # label_list.append(label)
-                imp_indexes=[imp_index[0]]*len(candidate_news_index)
-                user_indexes=[user_index[0]]*len(candidate_news_index)
-                label_list=label
-
-                # c_input_masks.append(c_input_mask)
-                # c_segements.append(c_segement)
-                # h_input_masks.append(h_input_mask)
-                # h_segements.append(h_segement)
-                # h_len.append(h_len_t)
-                # c_len.append(c_len_t)
+            # c_input_masks.append(c_input_mask)
+            # c_segements.append(c_segement)
+            # h_input_masks.append(h_input_mask)
+            # h_segements.append(h_segement)
+            # h_len.append(h_len_t)
+            # c_len.append(c_len_t)
+            
+            #all_can.append(all_can_t)
+            cnt += 1
+            if cnt >= batch_size or cnt==len(rd):
                 
-                #all_can.append(all_can_t)
-                cnt += 1
-                if cnt >= batch_size:
-                    
 
-                    yield self._convert_data(
-                        label_list,
-                        imp_indexes,
-                        user_indexes,
-                        candidate_news_indexes,
-                        #click_news_indexes,
-                        # c_input_masks,
-                        # c_segements,
-                        # h_input_masks,
-                        # h_segements,
-                        # h_len,
-                        # c_len,
-                        # all_his,
-                        # all_can,
-                    )
-                    candidate_news_indexes = []
-                    click_news_indexes = []
-                    label_list = []
-                    imp_indexes = []
-                    user_indexes = []
-                    #input_ids=[]
-                    # c_input_masks=[]
-                    # c_segements=[]
-                    # h_input_masks=[]
-                    # h_segements=[]
-                    # h_len=[]
-                    # c_len=[]
-                    # all_his=[]
-                    # all_can=[]
-                    cnt = 0
+                yield self._convert_data(
+                    label_list,
+                    imp_indexes,
+                    user_indexes,
+                    candidate_news_indexes,
+                    #click_news_indexes,
+                    # c_input_masks,
+                    # c_segements,
+                    # h_input_masks,
+                    # h_segements,
+                    # h_len,
+                    # c_len,
+                    # all_his,
+                    # all_can,
+                )
+                candidate_news_indexes = []
+                click_news_indexes = []
+                label_list = []
+                imp_indexes = []
+                user_indexes = []
+                #input_ids=[]
+                # c_input_masks=[]
+                # c_segements=[]
+                # h_input_masks=[]
+                # h_segements=[]
+                # h_len=[]
+                # c_len=[]
+                # all_his=[]
+                # all_can=[]
+                cnt = 0
 
     def _convert_data(
         self,
