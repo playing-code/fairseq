@@ -371,9 +371,9 @@ class NewsIterator(object):
         # return (label, imp_index, user_index, candidate_news_index, click_news_index, c_input_mask,c_segement,h_input_mask,h_segement,h_len,c_len,all_his,all_can)
         if len(data_size)!=0:
             #print('its a valid data!!')
-            return (label, imp_index, user_index, candidate_news_index, click_news_index, all_his,all_can,data_size)
+            return (label, imp_index, user_index, candidate_news_index, click_news_index)
         else:
-            return (label, imp_index, user_index, candidate_news_index, click_news_index, all_his,all_can)
+            return (label, imp_index, user_index, candidate_news_index, click_news_index)
 
     def load_data_from_file(self, infile):
         """Read and parse data from a file.
@@ -410,8 +410,8 @@ class NewsIterator(object):
                     user_index,
                     candidate_news_index,
                     click_news_index,
-                    all_his_t,
-                    all_can_t,
+                    # all_his_t,
+                    # all_can_t,
                 ) = self.parser_one_line(line)
 
 
@@ -429,8 +429,8 @@ class NewsIterator(object):
                 # h_segements.append(h_segement)
                 # h_len.append(h_len_t)
                 # c_len.append(c_len_t)
-                all_his.append(all_his_t)
-                all_can.append(all_can_t)
+                # all_his.append(all_his_t)
+                # all_can.append(all_can_t)
                 cnt += 1
                 if cnt >= self.batch_size:
                     #input_mask=
@@ -448,8 +448,8 @@ class NewsIterator(object):
                         # h_segements,
                         # h_len,
                         # c_len,
-                        all_his,
-                        all_can,
+                        # all_his,
+                        # all_can,
                     )
                     candidate_news_indexes = []
                     click_news_indexes = []
@@ -463,8 +463,8 @@ class NewsIterator(object):
                     # h_segements=[]
                     # h_len=[]
                     # c_len=[]
-                    all_his=[]
-                    all_can=[]
+                    # all_his=[]
+                    # all_can=[]
                     cnt = 0
 
 
@@ -504,21 +504,20 @@ class NewsIterator(object):
                     user_index,
                     candidate_news_index,
                     click_news_index,
-                    all_his_t,
-                    all_can_t,
-                    data_size,
+                    # all_his_t,
+                    # all_can_t,
+                    # data_size,
                 ) = self.parser_one_line(line)
                 #batch_size=data_size[0]
                 candidate_news_indexes.append(candidate_news_index)
                 #candidate_news_indexes=candidate_news_index
-
                 candidate_news_indexes=np.array(candidate_news_indexes)
                 #print('???',candidate_news_indexes)
-                candidate_news_indexes=candidate_news_indexes.reshape(-1,1,len(candidate_news_index[0]))
+                candidate_news_indexes=candidate_news_indexes.reshape(1,-1,len(candidate_news_index[0]))
 
                 if len(click_news_indexes)==0:
                     click_news_indexes.append(click_news_index)
-                    all_his.append(all_his_t)
+                    #all_his.append(all_his_t)
 
                 # imp_indexes.append(imp_index)
                 # user_indexes.append(user_index)
@@ -534,7 +533,7 @@ class NewsIterator(object):
                 # h_len.append(h_len_t)
                 # c_len.append(c_len_t)
                 
-                all_can.append(all_can_t)
+                #all_can.append(all_can_t)
                 cnt += 1
                 if cnt >= batch_size:
                     
@@ -551,8 +550,8 @@ class NewsIterator(object):
                         # h_segements,
                         # h_len,
                         # c_len,
-                        all_his,
-                        all_can,
+                        # all_his,
+                        # all_can,
                     )
                     candidate_news_indexes = []
                     click_news_indexes = []
@@ -577,8 +576,6 @@ class NewsIterator(object):
         user_indexes,
         candidate_news_indexes,
         click_news_indexes,
-        all_his,
-        all_can
 
 
     ):
@@ -613,8 +610,8 @@ class NewsIterator(object):
         # h_length=np.asarray(h_length,dtype=np.int32)
         # all_his=np.asarray(all_his,dtype=np.int32)
         # all_can=np.asarray(all_can,dtype=np.int32)
-        all_his = torch.LongTensor(all_his)  
-        all_can = torch.LongTensor(all_can)  
+        # all_his = torch.LongTensor(all_his)  
+        # all_can = torch.LongTensor(all_can)  
         # return {
         #     "impression_index_batch": imp_indexes,
         #     "user_index_batch": user_indexes,
@@ -640,6 +637,6 @@ class NewsIterator(object):
             # "h_input_masks":h_input_masks,
             # "h_segments":h_segements,
             labels,
-            all_his,
-            all_can,
+            # all_his,
+            # all_can,
         )

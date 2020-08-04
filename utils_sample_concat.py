@@ -292,6 +292,8 @@ class NewsIterator(object):
         all_his=[]
         all_can=[]
         data_size=[]
+        can_pos=''
+        can_neg=''
         
 
         for news in cols:
@@ -322,16 +324,16 @@ class NewsIterator(object):
                 # candidate_news_index.append(w_temp)
                 # assert len(w_temp)==512
 
-            # elif "CandidateNews" in tokens[0]:
-            #     # word index start by 0
-            #     # w_temp=[int(i) for i in tokens[1].split(",")]
-            #     # candidate_news_index.append(w_temp)
+            elif "CandidateNews" in tokens[0]:
+                # word index start by 0
+                # w_temp=[int(i) for i in tokens[1].split(",")]
+                # candidate_news_index.append(w_temp)
 
-            #     can_list=tokens[1].split(",")
-            #     candidate_news_index=[self.news_dict[item] for item in can_list]
-            #     # count0=w_temp.count(0)
-            #     # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
-            #     # c_segement.append([0]*len(w_temp))
+                can_t=[int(i) for i in tokens[1].split(",")]
+                #candidate_news_index_t=[self.news_dict[item] for item in can_list]
+                # count0=w_temp.count(0)
+                # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
+                # c_segement.append([0]*len(w_temp))
 
             elif "ClickedNews" in tokens[0]:
                 history=[int(i) for i in tokens[1].split(",")]
@@ -375,10 +377,14 @@ class NewsIterator(object):
         #     return (label, imp_index, user_index, candidate_news_index, click_news_index, all_his,all_can,data_size)
         # else:
         #     return (label, imp_index, user_index, candidate_news_index, click_news_index, all_his,all_can)
-        candidate_news_index.append(history+can_pos)
-        candidate_news_index.append(history+can_neg)
-        assert len(history+can_pos)==512
-        assert len(history+can_neg)==512
+        if can_pos!='':
+            candidate_news_index.append(history+can_pos)
+            candidate_news_index.append(history+can_neg)
+        else:
+            candidate_news_index.append(history+can_t)
+            assert len(history+can_t)==512
+        # assert len(history+can_pos)==512
+        # assert len(history+can_neg)==512
 
         return (label, imp_index, user_index, candidate_news_index)
 
@@ -511,10 +517,10 @@ class NewsIterator(object):
                     imp_index,
                     user_index,
                     candidate_news_index,
-                    click_news_index,
-                    all_his_t,
-                    all_can_t,
-                    data_size,
+                    # click_news_index,
+                    # all_his_t,
+                    # all_can_t,
+                    # data_size,
                 ) = self.parser_one_line(line)
                 #batch_size=data_size[0]
                 candidate_news_indexes.append(candidate_news_index)
@@ -524,9 +530,9 @@ class NewsIterator(object):
                 #print('???',candidate_news_indexes)
                 candidate_news_indexes=candidate_news_indexes.reshape(-1,1,len(candidate_news_index[0]))
 
-                if len(click_news_indexes)==0:
-                    click_news_indexes.append(click_news_index)
-                    all_his.append(all_his_t)
+                # if len(click_news_indexes)==0:
+                #     click_news_indexes.append(click_news_index)
+                #     all_his.append(all_his_t)
 
                 # imp_indexes.append(imp_index)
                 # user_indexes.append(user_index)
@@ -542,7 +548,7 @@ class NewsIterator(object):
                 # h_len.append(h_len_t)
                 # c_len.append(c_len_t)
                 
-                all_can.append(all_can_t)
+                #all_can.append(all_can_t)
                 cnt += 1
                 if cnt >= batch_size:
                     
@@ -552,15 +558,15 @@ class NewsIterator(object):
                         imp_indexes,
                         user_indexes,
                         candidate_news_indexes,
-                        click_news_indexes,
+                        #click_news_indexes,
                         # c_input_masks,
                         # c_segements,
                         # h_input_masks,
                         # h_segements,
                         # h_len,
                         # c_len,
-                        all_his,
-                        all_can,
+                        # all_his,
+                        # all_can,
                     )
                     candidate_news_indexes = []
                     click_news_indexes = []
@@ -574,8 +580,8 @@ class NewsIterator(object):
                     # h_segements=[]
                     # h_len=[]
                     # c_len=[]
-                    all_his=[]
-                    all_can=[]
+                    # all_his=[]
+                    # all_can=[]
                     cnt = 0
 
     def _convert_data(

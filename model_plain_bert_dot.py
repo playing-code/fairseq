@@ -310,24 +310,18 @@ class Plain_bert(nn.Module):#
     def predict(self,his_id , candidate_id):
 
         batch_size,can_num,can_legth=candidate_id.shape
-        his_batch,his_num,his_length=his_id.shape
+        print('???',candidate_id.shape)
+        batch_size,_,his_length=his_id.shape
         sample_size=candidate_id.shape[0]
         #print('in model: ',his_id.shape,candidate_id.shape,rank_mask.shape,label.shape,label)
         #print(his_id)
         his_id=his_id.reshape(-1,his_id.shape[-1])
         candidate_id=candidate_id.reshape(-1,can_legth)
-        #print('candidate_id',candidate_id)
-        # print('candidate_id: ',candidate_id)
-        # print('candidate_id2: ',candidate_id2)
 
         his_padding_mask = his_id.eq(self.padding_idx)#
         can_padding_mask=candidate_id.eq(self.padding_idx)
 
-        #can_padding_mask2=candidate_id2.eq(self.padding_idx)
-        #print('can_padding_mask',can_padding_mask)
-
-        #print('can_padding_mask: ',can_padding_mask)
-        
+       
         if not self.traceable and not his_padding_mask.any():
             his_padding_mask = None
 
@@ -341,7 +335,6 @@ class Plain_bert(nn.Module):#
         l = self.embed_tokens(candidate_id)
 
 
-
         if self.embed_scale is not None:
             h *= self.embed_scale
             l *= self.embed_scale
@@ -352,7 +345,6 @@ class Plain_bert(nn.Module):#
             h += self.embed_positions(his_id)
             l += self.embed_positions(candidate_id)
 
-
         if self.quant_noise is not None:
             print('error!')
             x = self.quant_noise(x)
@@ -360,8 +352,6 @@ class Plain_bert(nn.Module):#
         if self.emb_layer_norm is not None:
             h = self.emb_layer_norm(h)
             l = self.emb_layer_norm(l)
-
-            #l2 = self.emb_layer_norm(l2)
 
         h = F.dropout(h, p=self.dropout, training=self.training)#
 
@@ -375,32 +365,33 @@ class Plain_bert(nn.Module):#
         if can_padding_mask is not None:
             l *= 1 - can_padding_mask.unsqueeze(-1).type_as(l)
 
-
         his_features = self.extract_features(h,his_padding_mask)#bsz,length,dim
         his_features=his_features[:,0,:]
 
-        his_features=his_features.reshape(1,his_features.shape[-1])
-        his_features=his_features.transpose(0,1).repeat(1,can_num*batch_size).transpose(0,1)
-
-        #print('???his_features: ',his_features)        
+        his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
+        #his_features=his_features.transpose(1,2).repeat(1,1,can_num).transpose(1,2)
 
         can_features=self.extract_features(l,can_padding_mask)
         can_features=can_features[:,0,:]
 
-        can_features=can_features.reshape(-1,can_features.shape[-1])
+        can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
-        features=torch.cat( (his_features,can_features ) ,1)
+
+        #features=torch.cat( (his_features,can_features ) ,2)
         # print('features: ',features)
 
         # print('dense: ',self.score2(features))
 
-        res1=self.score2(features)
-        res=self.score3(res1)
+        # res1=self.score2(features)
+        # res=self.score3(res1)
 
-        res=res.squeeze(-1)
+        # res=res.squeeze(-1)
+        res=torch.matmul(his_features,can_features.transpose(1,2))
+
+        res=res.reshape(-1)
         #print('res: ',res)
 
-        res=F.sigmoid(res)
+        #res=F.sigmoid(res)
         #print('res: ',res)
         #print('res shape: ',res.shape)
 
