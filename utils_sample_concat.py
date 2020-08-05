@@ -506,7 +506,7 @@ class NewsIterator(object):
         all_his=[]
         all_can=[]
         data_index_record=''
-        batch_size=48
+        batch_size=self.batch_size
 
         # with tf.gfile.GFile(infile, "r") as rd:
         #with open(infile, "r") as rd:

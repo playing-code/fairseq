@@ -192,7 +192,7 @@ def test(model,args):#valid
     #test_file='valid_ms_roberta_plain_large.txt'
     #test_file='valid_ms_roberta_plain.txt'
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=2, npratio=-1,feature_file=feature_file,mode='test')
+    iterator=NewsIterator(batch_size=300, npratio=-1,feature_file=feature_file,mode='test')
     print('test...')
     with torch.no_grad():
         data_batch=iterator.load_test_data_from_file(test_file)
@@ -224,7 +224,7 @@ def test(model,args):#valid
             imp_index=np.reshape(np.array(imp_index), -1)
             #print('batch_t:',batch_t)
             for i in range(len(imp_index)):
-                #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
+                print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
                 w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
 
             # preds.extend(logit)

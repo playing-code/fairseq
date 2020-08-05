@@ -61,6 +61,9 @@ def parse_args():
     parser.add_argument("--feature_file",
                     type=str,
                     help="local_rank for distributed training on gpus")
+    # parser.add_argument("--model_file",
+    #                 type=str,
+    #                 help="local_rank for distributed training on gpus")
     parser.add_argument("--size",
                     type=int,
                     default=1,
@@ -134,13 +137,13 @@ def train(model,optimizer,args):
     #train_file='train_ms_roberta.txt'
     iterator=NewsIterator(batch_size=8*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file))
     #for epoch in range(0,100):
-    batch_t=0
-    iteration=0
+    batch_t=422944
+    iteration=13217
     print('train...',cuda_list)
     
     epoch=0
     model.train()
-    for epoch in range(0,10):
+    for epoch in range(4,10):
     #while True:
         all_loss=0
         all_batch=0
@@ -229,13 +232,15 @@ if __name__ == '__main__':
     # for k, v in model_dict.items(): 
     #     print(k,v.size())
     # print('----------------------------------------------------')
+    model_file=os.path.join(args.save_dir,'Plain_bert_1024_concat3.pkl')
+    save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
 
-    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
+    #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
     # print('load model from Plain_bert_960b4...')
     #save_model=torch.load('./model/Plain_bert_960b_large_continue_continue2.pkl',map_location=lambda storage, loc: storage)
     pretrained_dict={}
-    for name,parameters in roberta.named_parameters():
-    #for name in save_model:
+    #for name,parameters in roberta.named_parameters():
+    for name in save_model:
         #print(name,':',save_model[name].size())
         # print(name,':',parameters.size())
         # if "layer_norm" in  name:
@@ -246,11 +251,11 @@ if __name__ == '__main__':
         # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
         #   pretrained_dict[name[31:]]=parameters
 
-        if  'lm_head' not in name:
-            pretrained_dict[name[31:]]=parameters
+        # if  'lm_head' not in name:
+        #     pretrained_dict[name[31:]]=parameters
 
 
-        #pretrained_dict[name[7:]]=save_model[name]
+        pretrained_dict[name[7:]]=save_model[name]
         #pretrained_dict[name]=save_model[name]
         # elif 'lm_head.' in name:
         #     pretrained_dict[name[14:]]=parameters
