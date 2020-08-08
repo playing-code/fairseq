@@ -70,9 +70,10 @@ def parse_args():
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
-    # parser.add_argument("--log_file",
-    #                 type=str,
-    #                 help="local_rank for distributed training on gpus")
+    parser.add_argument("--log_file",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
+
 
 
     return parser.parse_args()
@@ -141,6 +142,7 @@ def train(model,optimizer, args):
     batch_t=0
     iteration=0
     print('train...',cuda_list)
+    w=open(os.path.join(args.data_dir,args.log_file),'w')
     
     epoch=0
     model.train()
@@ -209,6 +211,7 @@ def train(model,optimizer, args):
                 optimizer.step()
                 optimizer.zero_grad()
                 print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
+                w.write(' batch_t: '+str(batch_t)+' iteration: '+str(iteration)+' epoch: '+str(epoch)+' accum_batch_loss: '+str(accum_batch_loss/accumulation_steps)+'\n')
                 accum_batch_loss=0
                 #assert epoch>=3
                 # torch.save(model.state_dict(),'./model/Plain_bert_960b_large'+str(epoch)+'.pkl')
@@ -216,6 +219,7 @@ def train(model,optimizer, args):
                 #writer.add_scalar('Loss/train', float(accum_batch_loss/accumulation_steps), iteration)
                 #break
         torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
+        w.close()
             
 
 if __name__ == '__main__':
