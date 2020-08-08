@@ -102,7 +102,7 @@ class Plain_bert(nn.Module):#
         )
 
         self.dense = nn.Sequential(nn.Linear(embedding_dim, embedding_dim, bias=True),nn.Tanh()) 
-        self.layer_norm = LayerNorm(embed_dim)
+        self.layer_norm = LayerNorm(embedding_dim)
 
 
 
