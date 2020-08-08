@@ -152,7 +152,7 @@ def train(model,optimizer, args):
         all_loss=0
         all_batch=0
         data_batch=iterator.load_data_from_file(train_file)
-        for  imp_index , user_index, his_id, candidate_id , label, his_mask,rank_mask  in data_batch:
+        for  imp_index , user_index, his_id, candidate_id , label in data_batch:
             batch_t+=1
             # if batch_t<=232240:
             # if batch_t<=317190:
@@ -166,7 +166,6 @@ def train(model,optimizer, args):
             assert candidate_id.shape[1]==2
             his_id=his_id.cuda(cudaid)
             candidate_id= candidate_id.cuda(cudaid)
-            rank_mask = rank_mask.cuda(cudaid)
             label = label.cuda(cudaid)
             loss,sample_size=model(his_id,candidate_id, label)
 
@@ -194,7 +193,7 @@ def train(model,optimizer, args):
                 #     param_norm = p.grad.data.norm(2)
                 #     total_norm += param_norm.item() ** 2
                 # total_norm = total_norm ** (1. / 2)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
                 # total_clip_norm=0
                 # for p in model.parameters():
@@ -236,7 +235,7 @@ if __name__ == '__main__':
 
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
 
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
 
     
     model_dict = model.state_dict()
