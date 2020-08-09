@@ -146,6 +146,8 @@ def train(model,optimizer, args):
     
     epoch=0
     model.train()
+    batch_t=52880-1
+    iteration=3305-1
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
     for epoch in range(1,10):
     #while True:
