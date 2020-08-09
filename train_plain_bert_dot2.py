@@ -147,7 +147,7 @@ def train(model,optimizer, args):
     epoch=0
     model.train()
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
-    for epoch in range(0,10):
+    for epoch in range(1,10):
     #while True:
         all_loss=0
         all_batch=0
@@ -218,7 +218,7 @@ def train(model,optimizer, args):
                 #writer.add_scalar('Loss/train', float(accum_batch_loss/accumulation_steps), iteration)
                 #break
         torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
-        w.close()
+    w.close()
             
 
 if __name__ == '__main__':
@@ -243,12 +243,14 @@ if __name__ == '__main__':
     #     print(k,v.size())
     # print('----------------------------------------------------')
 
-    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
+    #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
     # print('load model from Plain_bert_960b4...')
     #save_model=torch.load('./model/Plain_bert_960b_large_continue_continue2.pkl',map_location=lambda storage, loc: storage)
+    model_file=os.path.join(args.save_dir,'Plain_robert_dot0.pkl')
+    save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
     pretrained_dict={}
-    for name,parameters in roberta.named_parameters():
-    #for name in save_model:
+    #for name,parameters in roberta.named_parameters():
+    for name in save_model:
         #print(name,':',save_model[name].size())
         # print(name,':',parameters.size())
         # if "layer_norm" in  name:
@@ -259,11 +261,11 @@ if __name__ == '__main__':
         # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
         #   pretrained_dict[name[31:]]=parameters
 
-        if  'lm_head' not in name:
-            pretrained_dict[name[31:]]=parameters
+        # if  'lm_head' not in name:
+        #     pretrained_dict[name[31:]]=parameters
 
 
-        #pretrained_dict[name[7:]]=save_model[name]
+        pretrained_dict[name[7:]]=save_model[name]
         #pretrained_dict[name]=save_model[name]
         # elif 'lm_head.' in name:
         #     pretrained_dict[name[14:]]=parameters
