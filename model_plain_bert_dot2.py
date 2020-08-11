@@ -260,6 +260,9 @@ class Plain_bert(nn.Module):#
 
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
+        his_features = self.dense(his_features)
+        his_features = self.layer_norm(his_features)
+
 
         #features=torch.cat( (his_features,can_features ) ,2)
         # print('features: ',features)

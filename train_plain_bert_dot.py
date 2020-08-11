@@ -7,7 +7,7 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot import  Plain_bert
+from model_plain_bert_dot2 import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -149,7 +149,7 @@ def train(model,optimizer, args):
         all_loss=0
         all_batch=0
         data_batch=iterator.load_data_from_file(train_file)
-        for  imp_index , user_index, his_id, candidate_id , label, his_mask,rank_mask  in data_batch:
+        for  imp_index , user_index, his_id, candidate_id , label  in data_batch:
             batch_t+=1
             # if batch_t<=232240:
             # if batch_t<=317190:
@@ -163,7 +163,6 @@ def train(model,optimizer, args):
             assert candidate_id.shape[1]==2
             his_id=his_id.cuda(cudaid)
             candidate_id= candidate_id.cuda(cudaid)
-            rank_mask = rank_mask.cuda(cudaid)
             label = label.cuda(cudaid)
             loss,sample_size=model(his_id,candidate_id, label)
 
