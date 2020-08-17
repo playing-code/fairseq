@@ -7,7 +7,7 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot import  Plain_bert
+from model_plain_bert_dot2 import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -77,18 +77,18 @@ def group_labels_func(labels, preds, group_keys):
         group_preds[k].append(p)
 
     #w=open('temp_result.txt','w')
-    w2=open('temp_label.txt','w')
-    for k in sorted(all_keys):
-        # mydict={i:group_preds[k][i] for i in range(len(group_preds[k]))}
-        # mydict_sort=sorted(mydict.items(),key=lambda x : x[1],reverse=True)
-        # mydict_sort2={mydict_sort[i][0]:i for i in range(len(mydict_sort)) }
-        # mydict_sort2=[mydict_sort2[i]+1 for i in range(len(mydict_sort2))]
-        # w.write(str(k)+' '+'['+','.join(str(item) for item in mydict_sort2)+']'+'\n')
-        w2.write(str(k)+' '+'['+','.join(str(item) for item in group_labels[k])+']'+'\n')
+    # w2=open('temp_label.txt','w')
+    # for k in sorted(all_keys):
+    #     # mydict={i:group_preds[k][i] for i in range(len(group_preds[k]))}
+    #     # mydict_sort=sorted(mydict.items(),key=lambda x : x[1],reverse=True)
+    #     # mydict_sort2={mydict_sort[i][0]:i for i in range(len(mydict_sort)) }
+    #     # mydict_sort2=[mydict_sort2[i]+1 for i in range(len(mydict_sort2))]
+    #     # w.write(str(k)+' '+'['+','.join(str(item) for item in mydict_sort2)+']'+'\n')
+    #     w2.write(str(k)+' '+'['+','.join(str(item) for item in group_labels[k])+']'+'\n')
 
-    w2.close()
-    #w.close()
-    print('write ok...')
+    # w2.close()
+    # #w.close()
+    # print('write ok...')
 
     all_labels = []
     all_preds = []
@@ -273,12 +273,89 @@ def test(model,args):#valid
 
 
 
-def exact_result():
+def exact_result3():
     preds = []
     labels = []
     imp_indexes = []
-    flag=4
-    f1=open('log_plain_bert_test'+str(flag)+'_0.txt','r').readlines()
+    preds_t = []
+    labels_t = []
+    imp_indexes_t = []
+    x=1
+    flag=''
+    for num in range(4):
+        #f1=open('../data/res_transformer_xh_adduser3_'+str(num)+'_init.txt','r').readlines() 
+        f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() 
+        for line in f1:
+            line=line.strip().split(' ')
+            logit=float(line[3])
+            imp_index=int(line[1])+x
+            label=int(float(line[5]))
+            labels.append(label)
+            preds.append(logit)
+            imp_indexes.append(imp_index)
+        x=imp_indexes[-1]+1
+    print('x: ',x)
+    group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
+
+    res = cal_metric(group_labels, group_preds, metrics)
+    print(res)
+
+
+
+
+def exact_result2():
+    preds = []
+    labels = []
+    imp_indexes = []
+    preds_t = []
+    labels_t = []
+    imp_indexes_t = []
+    x=1
+    flag=''
+    for num in range(40):
+        # f1=open('../data/res_transformer_xh_adduser0_'+str(num)+'.txt','r').readlines() 
+        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_concat5_'+str(num)+'.txt','r').readlines() 
+        for line in f1:
+            line=line.strip().split(' ')
+            if int(line[1])!=flag:
+                # print('???',labels_t)
+                # print('???',labels_t.count(0),len(labels_t))
+                if not( labels_t.count(0)==0 or labels_t.count(0)==len(labels_t)):
+                    x+=1
+                    preds.extend(preds_t)
+                    labels.extend(labels_t)
+                    imp_indexes.extend(imp_indexes_t)
+
+                flag=int(line[1])
+                preds_t = []
+                labels_t = []
+                imp_indexes_t = []         
+            #print('???',line)
+            logit=float(line[3])
+            # imp_index=int(line[1])+x
+            imp_index=x
+            label=int(float(line[5]))
+            labels_t.append(label)
+            preds_t.append(logit)
+            imp_indexes_t.append(imp_index)
+    if not( labels_t.count('0')==0 or labels_t.count('0')==len(labels_t)):
+        preds.extend(preds_t)
+        labels.append(labels_t)
+        imp_indexes.append(imp_indexes_t)
+            
+            
+    print('x: ',x)
+    group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
+
+    res = cal_metric(group_labels, group_preds, metrics)
+    print(res)
+
+
+def exact_result(flag):
+    preds = []
+    labels = []
+    imp_indexes = []
+    f1=open('../data/res_roberta_dot'+str(flag)+'0.txt','r').readlines()
     i=0
     x=1
     for line in f1:
@@ -309,7 +386,7 @@ def exact_result():
                 imp_indexes.append(imp_index)
         i+=1
 
-    f1=open('log_plain_bert_test'+str(flag)+'_1.txt','r').readlines()
+    f1=open('../data/res_roberta_dot'+str(flag)+'1.txt','r').readlines()
     i=0
     x=imp_indexes[-1]+1
     for line in f1:
@@ -337,7 +414,7 @@ def exact_result():
                 imp_indexes.append(imp_index)
         i+=1
 
-    f1=open('log_plain_bert_test'+str(flag)+'_2.txt','r').readlines()
+    f1=open('../data/res_roberta_dot'+str(flag)+'2.txt','r').readlines()
     i=0
     x=imp_indexes[-1]+1
     for line in f1:
@@ -366,7 +443,7 @@ def exact_result():
         i+=1
 
 
-    f1=open('log_plain_bert_test'+str(flag)+'_3.txt','r').readlines()
+    f1=open('../data/res_roberta_dot'+str(flag)+'3.txt','r').readlines()
     i=0
     x=imp_indexes[-1]+1
     for line in f1:
@@ -402,8 +479,11 @@ def exact_result():
 
 if __name__ == '__main__':
     # splice_file()
-    # exact_result()
-    # assert 1==0
+    # flag=sys.argv[1]
+    # exact_result(flag)
+    
+    exact_result3()
+    assert 1==0
 
     #model_num=sys.argv[1]
     # cuda_num=int(sys.argv[1])

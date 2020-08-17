@@ -22,6 +22,7 @@ from fairseq.modules import (
 # from positional_embedding import PositionalEmbedding
 # from transformer_sentence_encoder_layer import TransformerSentenceEncoderLayer
 import random
+from fairseq.modules import gelu, gelu_accurate
 
 #import model_utils as utils
 #from fairseq import utils
@@ -104,6 +105,10 @@ class Plain_bert(nn.Module):#
         self.dense = nn.Sequential(nn.Linear(embedding_dim, embedding_dim, bias=True),nn.Tanh()) 
         self.layer_norm = LayerNorm(embedding_dim)
 
+        self.dense_lm = nn.Linear(embedding_dim, embedding_dim)
+        self.activation_fn_lm = gelu
+        self.layer_norm_lm = LayerNorm(embedding_dim)
+
 
 
         self.embed_scale = embed_scale
@@ -161,9 +166,9 @@ class Plain_bert(nn.Module):#
 
         #self.score = nn.Linear(embedding_dim*2, 1, bias=True)
 
-        self.score2 = nn.Sequential(nn.Linear(embedding_dim*2, 200, bias=True),nn.Tanh()) 
+        # self.score2 = nn.Sequential(nn.Linear(embedding_dim*2, 200, bias=True),nn.Tanh()) 
 
-        self.score3 = nn.Linear(200, 1, bias=True)
+        # self.score3 = nn.Linear(200, 1, bias=True)
 
         if encoder_normalize_before:
             self.emb_layer_norm = LayerNorm(self.embedding_dim, export=export)
@@ -252,12 +257,20 @@ class Plain_bert(nn.Module):#
         his_features = self.extract_features(h,his_padding_mask)#bsz,length,dim
         his_features=his_features[:,0,:]
 
+        his_features=self.dense_lm(his_features)
+        his_features=self.activation_fn_lm(his_features)
+        his_features=self.layer_norm_lm(his_features)
+
+
         his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
         #his_features=his_features.transpose(1,2).repeat(1,1,can_num).transpose(1,2)
 
         can_features=self.extract_features(l,can_padding_mask)
         can_features=can_features[:,0,:]
-
+        can_features=self.dense_lm(can_features)
+        can_features=self.activation_fn_lm(can_features)
+        can_features=self.layer_norm_lm(can_features)
+        
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
         his_features = self.dense(his_features)

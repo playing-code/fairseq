@@ -7,7 +7,7 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot2 import  Plain_bert
+from model_plain_bert_dot3 import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -143,8 +143,8 @@ def train(model,optimizer, args):
     batch_t=0
     iteration=0
     print('train...',cuda_list)
-    #w=open(os.path.join(args.data_dir,args.log_file),'w')
     writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
+    #w=open(os.path.join(args.data_dir,args.log_file),'w')
     
     epoch=0
     model.train()
@@ -241,6 +241,7 @@ if __name__ == '__main__':
     model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
 
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+
     optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
 
     
@@ -268,6 +269,15 @@ if __name__ == '__main__':
 
         if  'lm_head' not in name:
             pretrained_dict[name[31:]]=parameters
+        else:
+            if 'dense.weight' in name:
+                pretrained_dict['dense_lm.weight']=parameters
+            elif 'dense.bias' in name:
+                pretrained_dict['dense_lm.bias']=parameters
+            elif 'layer_norm.weight' in name:
+                pretrained_dict['layer_norm_lm.weight']=parameters
+            elif 'layer_norm.bias' in name:
+                pretrained_dict['layer_norm_lm.bias']=parameters
 
 
         #pretrained_dict[name[7:]]=save_model[name]
