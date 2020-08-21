@@ -7,11 +7,11 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot2 import  Plain_bert
+from model_dot import  Plain_bert
 from fairseq.models.roberta import RobertaModel
-from utils_sample import NewsIterator
-from utils_sample import cal_metric
-import utils_sample as utils
+from utils_sample_deepwalk import NewsIterator
+from utils_sample_deepwalk import cal_metric
+import utils_sample_deepwalk as utils
 # import dgl
 # import dgl.function as fn
 #from gpu_mem_track import  MemTracker
@@ -34,7 +34,7 @@ from fairseq.data import (
 )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-import apex
+#import apex
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
@@ -72,9 +72,6 @@ def parse_args():
                     default=1,
                     help="local_rank for distributed training on gpus")
     parser.add_argument("--log_file",
-                    type=str,
-                    help="local_rank for distributed training on gpus")
-    parser.add_argument("--field",
                     type=str,
                     help="local_rank for distributed training on gpus")
 
@@ -133,14 +130,14 @@ def train(model,optimizer, args):
     cuda_list=range(args.size)
     #model.cuda(cudaid)
     # accumulation_steps=40
-    accumulation_steps=int(args.batch_size/args.size/8)
+    accumulation_steps=int(args.batch_size/args.size/512)
     #accumulation_steps=1
     model = nn.DataParallel(model, device_ids=cuda_list)
     accum_batch_loss=0
     #train_file='train_ms_roberta_plain_pair_sample_shuffle.txt'
     #train_file='train_ms_roberta_plain_pair_sample_large_new_shuffle.txt'
     #train_file='train_ms_roberta.txt'
-    iterator=NewsIterator(batch_size=8*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
+    iterator=NewsIterator(batch_size=512*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file))
     train_file=os.path.join(args.data_dir, args.data_file)  
     #for epoch in range(0,100):
     batch_t=0
@@ -156,12 +153,12 @@ def train(model,optimizer, args):
     batch_t=0
     iteration=0
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
-    for epoch in range(0,10):
+    for epoch in range(0,100):
     #while True:
         all_loss=0
         all_batch=0
         data_batch=iterator.load_data_from_file(train_file)
-        for  imp_index , user_index, his_id, candidate_id , label in data_batch:
+        for  imp_index , his_id, candidate_id , label in data_batch:
             batch_t+=1
             # if batch_t<=232240:
             # if batch_t<=317190:
@@ -194,40 +191,23 @@ def train(model,optimizer, args):
             loss.backward()
 
             if (batch_t)%accumulation_steps==0:
-                #print('candidate_id: ',candidate_id)
-                # total_norm=0
-                # for p in model.parameters():
-                #     if p.grad==None:
-                #         print('error: ',index,p.size(),p.grad)
-                #     param_norm = p.grad.data.norm(2)
-                #     total_norm += param_norm.item() ** 2
-                # total_norm = total_norm ** (1. / 2)
-                #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-
-                # total_clip_norm=0
-                # for p in model.parameters():
-                #     if p.grad==None:
-                #         print('error: ',index,p.size(),p.grad)
-                #     param_norm = p.grad.data.norm(2)
-                #     total_clip_norm += param_norm.item() ** 2
-                # total_clip_norm = total_clip_norm ** (1. / 2)
 
 
                 iteration+=1
-                adjust_learning_rate(optimizer,iteration)
+                #adjust_learning_rate(optimizer,iteration)
                 
                 optimizer.step()
                 optimizer.zero_grad()
-                print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
+                if iteration%10==0:
+                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
                 #w.write(' batch_t: '+str(batch_t)+' iteration: '+str(iteration)+' epoch: '+str(epoch)+' accum_batch_loss: '+str(accum_batch_loss/accumulation_steps)+'\n')
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 accum_batch_loss=0
                 #assert epoch>=3
                 # torch.save(model.state_dict(),'./model/Plain_bert_960b_large'+str(epoch)+'.pkl')
-                
                 #writer.add_scalar('Loss/train', float(accum_batch_loss/accumulation_steps), iteration)
                 #break
-        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
+        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_dot'+str(epoch)+'.pkl'))
     #w.close()
             
 
@@ -240,53 +220,10 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(1)
     #main()
     args = parse_args()
-    mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
-    model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
+    model=Plain_bert()
 
-    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
-
-    
-    model_dict = model.state_dict()
-    # for k, v in model_dict.items(): 
-    #     print(k,v.size())
-    # print('----------------------------------------------------')
-
-    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    # print('load model from Plain_bert_960b4...')
-    #save_model=torch.load('./model/Plain_bert_960b_large_continue_continue2.pkl',map_location=lambda storage, loc: storage)
-    # model_file=os.path.join(args.save_dir,'Plain_robert_dot0.pkl')
-    # save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
-    pretrained_dict={}
-    for name,parameters in roberta.named_parameters():
-    #for name in save_model:
-        #print(name,':',save_model[name].size())
-        # print(name,':',parameters.size())
-        # if "layer_norm" in  name:
-        #   print(name, save_model[name], save_model[name].shape)
-        # if ( 'layers' in name ):
-        #   pretrained_dict[name[31:]]=parameters
-        # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
-        #   pretrained_dict[name[31:]]=parameters
-
-        if  'lm_head' not in name:
-            pretrained_dict[name[31:]]=parameters
-
-        #pretrained_dict[name[7:]]=save_model[name]
-        #pretrained_dict[name]=save_model[name]
-        # elif 'lm_head.' in name:
-        #     pretrained_dict[name[14:]]=parameters
-    # print('----------------------------------------------------------')
-    print(pretrained_dict.keys())
-    #assert 1==0
-
-    model_dict.update(pretrained_dict)
-    #print(model_dict.keys())
-    model.load_state_dict(model_dict)
-    # for item in model.parameters():
-    #   print(item.requires_grad)
-        
-    
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    #optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
     model.cuda(cudaid)
     train(model,optimizer,args)
     # for epoch in range(5):

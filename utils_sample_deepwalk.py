@@ -4,7 +4,7 @@ import numpy as np
 import random
 # from fairseq.data import Dictionary
 # from fairseq import (
-# 	checkpoint_utils, distributed_utils, metrics, options, progress_bar, tasks, utils
+#   checkpoint_utils, distributed_utils, metrics, options, progress_bar, tasks, utils
 # )
 import torch
 import argparse
@@ -93,37 +93,37 @@ def dcg_score(y_true, y_score, k=10):
 
 def load_dict(path):
 
-	#mydict = Dictionary.load(os.path.join(path, 'dict.txt'))
-	mydict={}
-	cnt=0
-	mydict['<s>']=cnt
-	cnt+=1
-	mydict['<pad>']=cnt
-	cnt+=1
-	mydict['</s>']=cnt
-	cnt+=1
-	mydict['<unk>']=cnt
-	cnt+=1
-	#mask_idx = mydict.add_symbol('<mask>')
-	f=open(os.path.join(path, 'dict.txt'))
-	lines = f.readlines()
-	#indices_start_line = self._load_meta(lines)
-	for line in lines:
-		idx = line.rfind(" ")
-		if idx == -1:
-			raise ValueError(
-				"Incorrect dictionary format, expected '<token> <cnt>'"
-			)
-		word = line[:idx]
-		count = int(line[idx + 1 :])
-		mydict[word] = cnt
-		# self.symbols.append(word)
-		# self.count.append(count)
-		cnt+=1
-	mydict['<mask>']=cnt
-	cnt+=1
-	print('load dict ok...')
-	return  mydict
+    #mydict = Dictionary.load(os.path.join(path, 'dict.txt'))
+    mydict={}
+    cnt=0
+    mydict['<s>']=cnt
+    cnt+=1
+    mydict['<pad>']=cnt
+    cnt+=1
+    mydict['</s>']=cnt
+    cnt+=1
+    mydict['<unk>']=cnt
+    cnt+=1
+    #mask_idx = mydict.add_symbol('<mask>')
+    f=open(os.path.join(path, 'dict.txt'))
+    lines = f.readlines()
+    #indices_start_line = self._load_meta(lines)
+    for line in lines:
+        idx = line.rfind(" ")
+        if idx == -1:
+            raise ValueError(
+                "Incorrect dictionary format, expected '<token> <cnt>'"
+            )
+        word = line[:idx]
+        count = int(line[idx + 1 :])
+        mydict[word] = cnt
+        # self.symbols.append(word)
+        # self.count.append(count)
+        cnt+=1
+    mydict['<mask>']=cnt
+    cnt+=1
+    print('load dict ok...')
+    return  mydict
 
 def cal_metric(labels, preds, metrics):
     """Calculate metrics,such as auc, logloss.
@@ -205,10 +205,10 @@ def cal_metric(labels, preds, metrics):
 
 
 
-def read_features_roberta(filename,max_length):
+def read_features_roberta(filename):
 
     news_id={}
-    #max_length=20
+    max_length=20
     # f=open(data_path+'/news_token_features_roberta.txt','r')
     f=open(filename,'r')
     for line in f:
@@ -240,7 +240,7 @@ class NewsIterator(object):
         his_size (int): max clicked news num in user click history.
     """
 
-    def __init__(self, batch_size, npratio, feature_file,field, col_spliter=" ", ID_spliter="%",mode='train'):
+    def __init__(self, batch_size, npratio, feature_file, col_spliter=" ", ID_spliter="%",mode='train'):
         """Initialize an iterator. Create necessary placeholders for the model.
         
         Args:
@@ -259,14 +259,8 @@ class NewsIterator(object):
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_train')
         # else:
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_dev')
-        if field=='abstract':
-            max_length=60
-        elif field=='domain':
-            max_length=30
-        elif field == 'category':
-            max_length=30
-
-        self.news_dict=read_features_roberta(feature_file,max_length)
+        #self.news_dict=read_features_roberta(feature_file)
+        self.emb=np.load(feature_file)
 
 
     def parser_one_line(self, line):
@@ -283,11 +277,11 @@ class NewsIterator(object):
 
         cols = words[0].strip().split(self.col_spliter)
         #label = [float(i) for i in cols[: self.npratio + 1]]
-        if self.npratio==-1:
-            #label=[float(i) for i in cols[: self.npratio + 1]]
-            pass
-        else:
-            label=[0]
+        # if self.npratio==-1:
+        #     #label=[float(i) for i in cols[: self.npratio + 1]]
+        #     pass
+        # else:
+        label=[0]
         candidate_news_index = []
         click_news_index = []
         imp_index = []
@@ -301,18 +295,20 @@ class NewsIterator(object):
         all_his=[]
         all_can=[]
         data_size=[]
-        
 
-        for news in cols[self.npratio + 1 :]:
+        for news in cols:
             tokens = news.split(":")
             if "Impression" in tokens[0]:
                 imp_index.append(int(tokens[1]))
             elif "User" in tokens[0]:
-                user_index.append(int(tokens[1]))
+                #user_index.append(int(tokens[1]))
+                w_temp=self.emb[int(tokens[1])]
+                click_news_index.append(w_temp)
 
             elif "CandidateNewsPos" in tokens[0]:
                 # word index start by 0
-                w_temp=[int(i) for i in tokens[1].split(",")]
+                #w_temp=[int(i) for i in tokens[1].split(",")]
+                w_temp=self.emb[int(tokens[1])]
                 candidate_news_index.append(w_temp)
                 # count0=w_temp.count(0)
                 # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
@@ -326,65 +322,63 @@ class NewsIterator(object):
                 # c_segement.append([0]*len(w_temp))
                 neg_list=tokens[1].split(",")
                 neg_sample=np.random.choice(len(neg_list),1,replace=False)[0]
-                w_temp=[int(i) for i in self.news_dict[neg_list[neg_sample]]]
+                w_temp=self.emb[int(neg_list[neg_sample])]
                 candidate_news_index.append(w_temp)
-
-            elif "CandidateNews" in tokens[0]:
-                # word index start by 0
-                # w_temp=[int(i) for i in tokens[1].split(",")]
+                # w_temp=[int(i) for i in self.news_dict[neg_list[neg_sample]]]
                 # candidate_news_index.append(w_temp)
 
-                can_list=tokens[1].split(",")
-                candidate_news_index=[self.news_dict[item] for item in can_list]
+            # elif "CandidateNews" in tokens[0]:
+            #     # word index start by 0
+            #     # w_temp=[int(i) for i in tokens[1].split(",")]
+            #     # candidate_news_index.append(w_temp)
+
+            #     can_list=tokens[1].split(",")
+            #     candidate_news_index=[self.news_dict[item] for item in can_list]
                 # count0=w_temp.count(0)
                 # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
                 # c_segement.append([0]*len(w_temp))
 
-            elif "ClickedNews" in tokens[0]:
-                w_temp=[int(i) for i in tokens[1].split(",")]
-                click_news_index.append(w_temp)
-                #count0=w_temp.count(0)
-                # h_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
-                # h_segement.append([0]*len(w_temp))
-            elif "Hislen" in tokens[0]:
-                # h_len=[[int(i)] for i in tokens[1].split(",")]
-                # if len(h_len)!=50:
-                #     print(len(h_len),h_len)
-                # assert len(h_len)==50
-                pass
+            # elif "ClickedNews" in tokens[0]:
+            #     w_temp=[int(i) for i in tokens[1].split(",")]
+            #     click_news_index.append(w_temp)
+            #     #count0=w_temp.count(0)
+            #     # h_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
+            #     # h_segement.append([0]*len(w_temp))
+            # # elif "Hislen" in tokens[0]:
+            #     # h_len=[[int(i)] for i in tokens[1].split(",")]
+            #     # if len(h_len)!=50:
+            #     #     print(len(h_len),h_len)
+            #     # assert len(h_len)==50
+            #     pass
                 
-            elif "Canlen" in tokens[0]:
-                #c_len=[[int(i)] for i in tokens[1].split(",")]
-                #assert len(c_len)==5
-                pass
+            # elif "Canlen" in tokens[0]:
+            #     #c_len=[[int(i)] for i in tokens[1].split(",")]
+            #     #assert len(c_len)==5
+            #     pass
 
-            elif "Allhis" in tokens[0]:
-                pass
-                #all_his=[int(i) for i in tokens[1].split(",")]
-                #assert all_his[0]!=0
-                #.append(w_temp)
-                #pass
-            elif "Allcan" in tokens[0]:
-                pass
-                #all_can=[int(i) for i in tokens[1].split(",")]
-                #.append(w_temp)
+            # elif "Allhis" in tokens[0]:
+            #     all_his=[int(i) for i in tokens[1].split(",")]
+            #     #assert all_his[0]!=0
+            #     #.append(w_temp)
+            #     #pass
+            # elif "Allcan" in tokens[0]:
+            #     all_can=[int(i) for i in tokens[1].split(",")]
+            #     #.append(w_temp)
 
-            elif "Label" in tokens[0]:
-                pass
-                #label=[int(i) for i in tokens[1].split(",")]
+            # elif "Label" in tokens[0]:
+            #     label=[int(i) for i in tokens[1].split(",")]
 
-            elif "DataSize" in tokens[0]:
-                pass
-                #data_size=[int(i) for i in tokens[1].split(",")]
+            # elif "DataSize" in tokens[0]:
+            #     data_size=[int(i) for i in tokens[1].split(",")]
                 #.append(w_temp)
             else:
                 raise ValueError("data format is wrong")
         # return (label, imp_index, user_index, candidate_news_index, click_news_index, c_input_mask,c_segement,h_input_mask,h_segement,h_len,c_len,all_his,all_can)
         if len(data_size)!=0:
             #print('its a valid data!!')
-            return (label, imp_index, user_index, candidate_news_index, click_news_index)
+            return (label, imp_index, candidate_news_index, click_news_index)
         else:
-            return (label, imp_index, user_index, candidate_news_index, click_news_index)
+            return (label, imp_index, candidate_news_index, click_news_index)
 
     def load_data_from_file(self, infile):
         """Read and parse data from a file.
@@ -414,25 +408,18 @@ class NewsIterator(object):
         # with tf.gfile.GFile(infile, "r") as rd:
         with open(infile, "r") as rd:
             for line in rd:
-
                 (
                     label,
                     imp_index,
-                    user_index,
                     candidate_news_index,
                     click_news_index,
                     # all_his_t,
                     # all_can_t,
                 ) = self.parser_one_line(line)
 
-
-
                 candidate_news_indexes.append(candidate_news_index)
-
-
                 click_news_indexes.append(click_news_index)
                 imp_indexes.append(imp_index)
-                user_indexes.append(user_index)
                 label_list.append(label)
                 # c_input_masks.append(c_input_mask)
                 # c_segements.append(c_segement)
@@ -445,12 +432,9 @@ class NewsIterator(object):
                 cnt += 1
                 if cnt >= self.batch_size:
                     #input_mask=
-                    
-
                     yield self._convert_data(
                         label_list,
                         imp_indexes,
-                        user_indexes,
                         candidate_news_indexes,
                         click_news_indexes,
                         # c_input_masks,
@@ -584,7 +568,6 @@ class NewsIterator(object):
         self,
         label_list,
         imp_indexes,
-        user_indexes,
         candidate_news_indexes,
         click_news_indexes,
 
@@ -609,10 +592,9 @@ class NewsIterator(object):
         # candidate_news_index_batch = np.asarray(candidate_news_indexes, dtype=np.int32)
         # click_news_index_batch = np.asarray(click_news_indexes, dtype=np.int32)
         labels = torch.LongTensor(label_list)
-        imp_indexes = torch.LongTensor(imp_indexes) 
-        user_indexes = torch.LongTensor(user_indexes) 
-        candidate_news_index_batch = torch.LongTensor(candidate_news_indexes) 
-        click_news_index_batch = torch.LongTensor(click_news_indexes) 
+        imp_indexes = torch.FloatTensor(imp_indexes) 
+        candidate_news_index_batch = torch.FloatTensor(candidate_news_indexes) 
+        click_news_index_batch = torch.FloatTensor(click_news_indexes) 
         # c_input_masks=np.asarray(c_input_masks, dtype=np.int32)
         # c_segements=np.asarray(c_segements, dtype=np.int32)
         # h_input_masks=np.asarray(h_input_masks, dtype=np.int32)
@@ -640,7 +622,6 @@ class NewsIterator(object):
         # }
         return (
             imp_indexes,
-            user_indexes,
             click_news_index_batch,
             candidate_news_index_batch,
             # "c_input_masks":c_input_masks,

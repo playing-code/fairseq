@@ -161,9 +161,9 @@ class Plain_bert(nn.Module):#
 
         #self.score = nn.Linear(embedding_dim*2, 1, bias=True)
 
-        self.score2 = nn.Sequential(nn.Linear(embedding_dim*2, 200, bias=True),nn.Tanh()) 
+        # self.score2 = nn.Sequential(nn.Linear(embedding_dim*2, 200, bias=True),nn.Tanh()) 
 
-        self.score3 = nn.Linear(200, 1, bias=True)
+        # self.score3 = nn.Linear(200, 1, bias=True)
 
         if encoder_normalize_before:
             self.emb_layer_norm = LayerNorm(self.embedding_dim, export=export)
@@ -204,7 +204,6 @@ class Plain_bert(nn.Module):#
 
         his_padding_mask = his_id.eq(self.padding_idx)#
         can_padding_mask=candidate_id.eq(self.padding_idx)
-
        
         if not self.traceable and not his_padding_mask.any():
             his_padding_mask = None
@@ -263,6 +262,9 @@ class Plain_bert(nn.Module):#
         his_features = self.dense(his_features)
         his_features = self.layer_norm(his_features)
 
+        can_features = self.dense(can_features)
+        can_features = self.layer_norm(can_features)
+
 
         #features=torch.cat( (his_features,can_features ) ,2)
         # print('features: ',features)
@@ -277,8 +279,6 @@ class Plain_bert(nn.Module):#
 
         res=res.reshape(-1,2)
         #print('???',res,sample_size)
-        
-
 
         loss = F.nll_loss(
             F.log_softmax(
@@ -383,8 +383,8 @@ class Plain_bert(nn.Module):#
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
 
-        his_features = self.dense(his_features)
-        his_features = self.layer_norm(his_features)
+        # his_features = self.dense(his_features)
+        # his_features = self.layer_norm(his_features)
 
 
 
