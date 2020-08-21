@@ -7,7 +7,7 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot2 import  Plain_bert
+from model_plain_bert_dot4 import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric

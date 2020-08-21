@@ -225,7 +225,7 @@ def train(model,optimizer, args):
                 #writer.add_scalar('Loss/train', float(accum_batch_loss/accumulation_steps), iteration)
                 #break
         torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
-    w.close()
+    #w.close()
             
 
 if __name__ == '__main__':
