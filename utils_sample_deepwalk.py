@@ -327,10 +327,12 @@ class NewsIterator(object):
                 # w_temp=[int(i) for i in self.news_dict[neg_list[neg_sample]]]
                 # candidate_news_index.append(w_temp)
 
-            # elif "CandidateNews" in tokens[0]:
-            #     # word index start by 0
-            #     # w_temp=[int(i) for i in tokens[1].split(",")]
-            #     # candidate_news_index.append(w_temp)
+            elif "CandidateNews" in tokens[0]:
+                w_temp=self.emb[int(tokens[1])]
+                candidate_news_index.append(w_temp)
+                # word index start by 0
+                # w_temp=[int(i) for i in tokens[1].split(",")]
+                # candidate_news_index.append(w_temp)
 
             #     can_list=tokens[1].split(",")
             #     candidate_news_index=[self.news_dict[item] for item in can_list]
@@ -365,8 +367,8 @@ class NewsIterator(object):
             #     all_can=[int(i) for i in tokens[1].split(",")]
             #     #.append(w_temp)
 
-            # elif "Label" in tokens[0]:
-            #     label=[int(i) for i in tokens[1].split(",")]
+            elif "Label" in tokens[0]:
+                label=[int(i) for i in tokens[1].split(",")]
 
             # elif "DataSize" in tokens[0]:
             #     data_size=[int(i) for i in tokens[1].split(",")]
@@ -592,7 +594,7 @@ class NewsIterator(object):
         # candidate_news_index_batch = np.asarray(candidate_news_indexes, dtype=np.int32)
         # click_news_index_batch = np.asarray(click_news_indexes, dtype=np.int32)
         labels = torch.LongTensor(label_list)
-        imp_indexes = torch.FloatTensor(imp_indexes) 
+        imp_indexes = torch.LongTensor(imp_indexes) 
         candidate_news_index_batch = torch.FloatTensor(candidate_news_indexes) 
         click_news_index_batch = torch.FloatTensor(click_news_indexes) 
         # c_input_masks=np.asarray(c_input_masks, dtype=np.int32)

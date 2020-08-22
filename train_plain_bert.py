@@ -32,7 +32,9 @@ from fairseq.data import (
     SortDataset,
     TokenBlockDataset,
 )
+from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
+import apex
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
@@ -69,9 +71,9 @@ def parse_args():
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
-    # parser.add_argument("--log_file",
-    #                 type=str,
-    #                 help="local_rank for distributed training on gpus")
+    parser.add_argument("--log_file",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
 
 
     return parser.parse_args()
@@ -137,6 +139,7 @@ def train(model,optimizer, args):
     iterator=NewsIterator(batch_size=2*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file))
     train_file=os.path.join(args.data_dir, args.data_file)  
     #for epoch in range(0,100):
+    writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
     batch_t=0
     iteration=0
     print('train...',cuda_list)
@@ -149,7 +152,7 @@ def train(model,optimizer, args):
         all_loss=0
         all_batch=0
         data_batch=iterator.load_data_from_file(train_file)
-        for  imp_index , user_index, his_id, candidate_id , label, his_mask,rank_mask  in data_batch:
+        for  imp_index , user_index, his_id, candidate_id , label  in data_batch:
             batch_t+=1
             # if batch_t<=232240:
             # if batch_t<=317190:
@@ -163,7 +166,6 @@ def train(model,optimizer, args):
             assert candidate_id.shape[1]==2
             his_id=his_id.cuda(cudaid)
             candidate_id= candidate_id.cuda(cudaid)
-            rank_mask = rank_mask.cuda(cudaid)
             label = label.cuda(cudaid)
             loss,sample_size=model(his_id,candidate_id, label)
 
@@ -190,7 +192,7 @@ def train(model,optimizer, args):
                 #     param_norm = p.grad.data.norm(2)
                 #     total_norm += param_norm.item() ** 2
                 # total_norm = total_norm ** (1. / 2)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
                 # total_clip_norm=0
                 # for p in model.parameters():
@@ -200,13 +202,13 @@ def train(model,optimizer, args):
                 #     total_clip_norm += param_norm.item() ** 2
                 # total_clip_norm = total_clip_norm ** (1. / 2)
 
-
                 iteration+=1
                 adjust_learning_rate(optimizer,iteration)
                 
                 optimizer.step()
                 optimizer.zero_grad()
                 print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
+                writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 accum_batch_loss=0
                 #assert epoch>=3
                 # torch.save(model.state_dict(),'./model/Plain_bert_960b_large'+str(epoch)+'.pkl')
@@ -228,7 +230,8 @@ if __name__ == '__main__':
     mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.large'))
     model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
 
     
     model_dict = model.state_dict()

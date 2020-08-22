@@ -191,6 +191,7 @@ class Plain_bert(nn.Module):#
         
         # batch_size,can_num,can_legth=candidate_id.shape
         # batch_size,_,his_length=his_id.shape
+
         batch_size,can_num,can_legth=candidate_id.shape
         batch_size,_,his_length=his_id.shape
         sample_size=candidate_id.shape[0]
@@ -250,7 +251,8 @@ class Plain_bert(nn.Module):#
         his_features=his_features[:,0,:]
 
         his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
-        his_features=his_features.transpose(1,2).repeat(1,1,can_num).transpose(1,2)
+        # his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
+        # his_features=his_features.transpose(1,2).repeat(1,1,can_num).transpose(1,2)
 
         can_features=self.extract_features(l,can_padding_mask)
         can_features=can_features[:,0,:]
@@ -258,29 +260,20 @@ class Plain_bert(nn.Module):#
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
 
-        features=torch.cat( (his_features,can_features ) ,2)
-        # print('features: ',features)
+        # features=torch.cat( (his_features,can_features ) ,2)
+        # # print('features: ',features)
 
-        # print('dense: ',self.score2(features))
+        # # print('dense: ',self.score2(features))
 
-        res1=self.score2(features)
-        res=self.score3(res1)
+        # res1=self.score2(features)
+        # res=self.score3(res1)
+        res=torch.matmul(his_features,can_features.transpose(1,2))
 
-        res=res.squeeze(-1)
-        if rank_mask!=None:
-            a=rank_mask
-            rank_mask=rank_mask.reshape(-1)#
-            #print(rank_mask)
-            rank_mask = F.one_hot(rank_mask,num_classes=can_num+1)
-            #print('rank_mask: ',rank_mask)
-            rank_mask=torch.cumsum(rank_mask,dim=1)[:,:-1]
+        #res=res.squeeze(-1)
+        res=res.reshape(-1,2)
 
-            # print('rank_mask: ',rank_mask)
-            # rank_mask = 1-rank_mask[:,:-1]
-            # print('rank_mask: ',rank_mask)
-            # res=res - (1 - rank_mask) * 1e12
-            res=res.masked_fill(rank_mask.to(torch.bool),value=float("-inf"))
-            #print('res: ',res,a)
+        #print('???',res.shape,label.shape)
+        
 
 
         loss = F.nll_loss(

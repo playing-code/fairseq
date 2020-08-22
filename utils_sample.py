@@ -240,7 +240,7 @@ class NewsIterator(object):
         his_size (int): max clicked news num in user click history.
     """
 
-    def __init__(self, batch_size, npratio, feature_file,field, col_spliter=" ", ID_spliter="%",mode='train'):
+    def __init__(self, batch_size, npratio, feature_file,field=None, col_spliter=" ", ID_spliter="%",mode='train'):
         """Initialize an iterator. Create necessary placeholders for the model.
         
         Args:
@@ -259,7 +259,9 @@ class NewsIterator(object):
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_train')
         # else:
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_dev')
-        if field=='abstract':
+        if field==None:
+            max_length=20
+        elif field=='abstract':
             max_length=60
         elif field=='domain':
             max_length=30
