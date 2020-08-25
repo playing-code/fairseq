@@ -159,11 +159,9 @@ class Plain_bert(nn.Module):#
         # self.roberta=RobertaModel()
         # print(self.roberta.encode('Hello world!'))
 
-        #self.score = nn.Linear(embedding_dim*2, 1, bias=True)
-
-        # self.score2 = nn.Sequential(nn.Linear(embedding_dim*2, 200, bias=True),nn.Tanh()) 
-
-        # self.score3 = nn.Linear(200, 1, bias=True)
+        self.score = nn.Linear(embedding_dim*2, 1, bias=True)
+        self.score2 = nn.Sequential(nn.Linear(embedding_dim*2, 200, bias=True),nn.Tanh()) 
+        self.score3 = nn.Linear(200, 1, bias=True)
 
         if encoder_normalize_before:
             self.emb_layer_norm = LayerNorm(self.embedding_dim, export=export)
@@ -194,6 +192,7 @@ class Plain_bert(nn.Module):#
         
         # batch_size,can_num,can_legth=candidate_id.shape
         # batch_size,_,his_length=his_id.shape
+
         batch_size,can_num,can_legth=candidate_id.shape
         batch_size,_,his_length=his_id.shape
         sample_size=candidate_id.shape[0]
@@ -383,8 +382,11 @@ class Plain_bert(nn.Module):#
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
 
-        # his_features = self.dense(his_features)
-        # his_features = self.layer_norm(his_features)
+        his_features = self.dense(his_features)
+        his_features = self.layer_norm(his_features)
+
+        can_features = self.dense(can_features)
+        can_features = self.layer_norm(can_features)
 
 
 

@@ -169,6 +169,9 @@ def parse_args():
     parser.add_argument("--log_file",
                     type=str,
                     help="local_rank for distributed training on gpus")
+    parser.add_argument("--field",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
 
 
     return parser.parse_args()            
@@ -192,7 +195,7 @@ def test(model,args):#valid
     #test_file='valid_ms_roberta_plain_large.txt'
     #test_file='valid_ms_roberta_plain.txt'
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=2, npratio=-1,feature_file=feature_file,mode='test')
+    iterator=NewsIterator(batch_size=2, npratio=-1,feature_file=feature_file,field=args.field)
     print('test...')
     with torch.no_grad():
         data_batch=iterator.load_test_data_from_file(test_file)
@@ -284,17 +287,17 @@ def exact_result3():
     flag=''
     for num in range(4):
         #f1=open('../data/res_transformer_xh_adduser3_'+str(num)+'_init.txt','r').readlines() 
-        f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() 
+        f1=open('../data/res_roberta_dot_abstract_25'+str(num)+'.txt','r').readlines() 
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
-            imp_index=int(line[1])+x
+            imp_index=int(line[1])#+x
             label=int(float(line[5]))
             labels.append(label)
             preds.append(logit)
             imp_indexes.append(imp_index)
         x=imp_indexes[-1]+1
-    print('x: ',x)
+    print('x: ',x,len(labels))
     group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
 
     res = cal_metric(group_labels, group_preds, metrics)
@@ -482,8 +485,8 @@ if __name__ == '__main__':
     # flag=sys.argv[1]
     # exact_result(flag)
     
-    exact_result3()
-    assert 1==0
+    # exact_result3()
+    # assert 1==0
 
     #model_num=sys.argv[1]
     # cuda_num=int(sys.argv[1])
@@ -495,7 +498,7 @@ if __name__ == '__main__':
     # cudaid=int(sys.argv[2])
     # test_file=sys.argv[3]
     #main()
-    mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base/'))
+    mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
     model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
     iteration=0
     batch_t=0
@@ -513,7 +516,7 @@ if __name__ == '__main__':
     #print(model.state_dict()['score3.0.bias'])
 
     # roberta = RobertaModel.from_pretrained('./model/roberta.base', checkpoint_file='model.pt')
-    model_file=os.path.join(args.data_dir,args.model_file)
+    model_file=os.path.join(args.save_dir,args.model_file)
 
     save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
     pretrained_dict={}

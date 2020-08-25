@@ -262,6 +262,7 @@ class NewsIterator(object):
         if field==None:
             max_length=20
         elif field=='abstract':
+            print('ok????')
             max_length=60
         elif field=='domain':
             max_length=30
@@ -372,8 +373,9 @@ class NewsIterator(object):
                 #.append(w_temp)
 
             elif "Label" in tokens[0]:
-                pass
-                #label=[int(i) for i in tokens[1].split(",")]
+                #pass
+                #print('???')
+                label=[int(i) for i in tokens[1].split(",")]
 
             elif "DataSize" in tokens[0]:
                 pass
