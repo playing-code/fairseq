@@ -227,7 +227,7 @@ def test(model,args):#valid
             imp_index=np.reshape(np.array(imp_index), -1)
             #print('batch_t:',batch_t)
             for i in range(len(imp_index)):
-                #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
+                print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
                 w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
 
             # preds.extend(logit)
