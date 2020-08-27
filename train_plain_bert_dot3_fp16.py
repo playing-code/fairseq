@@ -178,9 +178,14 @@ def train(model,optimizer, args):
     cuda_list=range(args.size)
     accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
 
+    
+
+    #model = nn.DataParallel(model, device_ids=cuda_list)
+    torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
+    model=torch.nn.parallel.DistributedDataParallel(model, device_ids=cuda_list)
     model, optimizer = amp.initialize(model, optimizer, opt_level="O2")
 
-    model = nn.DataParallel(model, device_ids=cuda_list)
+    
     accum_batch_loss=0
     iterator=NewsIterator(batch_size=args.gpu_size*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
     train_file=os.path.join(args.data_dir, args.data_file)  

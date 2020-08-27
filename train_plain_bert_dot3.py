@@ -34,7 +34,7 @@ from fairseq.data import (
 )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-import apex
+#import apex
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
@@ -47,6 +47,22 @@ lr=1e-4
 T_warm=5000
 all_iteration=33040
 
+# def init_process(rank,local_rank,args,minutes=720):
+#     """ Initialize the distributed environment. """
+#     # os.environ['MASTER_ADDR'] = '127.0.0.1'
+#     # os.environ['MASTER_PORT'] = '1234'
+#     # torch.distributed.init_process_group(backend, rank=rank, world_size=size)
+#     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+#         master_ip='localhost', master_port='12345')
+#     dist.init_process_group(backend='nccl',
+#                 init_method=dist_init_method,
+#                 # If you have a larger dataset, you will need to increase it.
+#                 timeout=timedelta(minutes=minutes),
+#                 world_size=args.size,
+#                 rank=rank)
+#     num_gpus = torch.cuda.device_count()
+#     torch.cuda.set_device(local_rank)
+#     assert torch.distributed.is_initialized()
 
 def parse_args():
     parser = argparse.ArgumentParser("Transformer-XH")
@@ -176,7 +192,9 @@ def train(model,optimizer, args):
     print('params: '," T_warm: ",T_warm," all_iteration: ",all_iteration," lr: ",lr)
     cuda_list=range(args.size)
     accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
-    model = nn.DataParallel(model, device_ids=cuda_list)
+    #model = nn.DataParallel(model, device_ids=cuda_list)
+    torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
+    model=torch.nn.parallel.DistributedDataParallel(model, device_ids=cuda_list)
     accum_batch_loss=0
     iterator=NewsIterator(batch_size=args.gpu_size*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
     train_file=os.path.join(args.data_dir, args.data_file)  
@@ -233,7 +251,7 @@ def train(model,optimizer, args):
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%500==0:
+                if iteration%2==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     auc=test(model,args)
@@ -260,8 +278,8 @@ if __name__ == '__main__':
     #main()
     args = parse_args()
     model=Plain_bert(args)
-    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    #optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
     
     # for name, param in model.named_parameters():
     #     print(name,param.shape,param.requires_grad)
