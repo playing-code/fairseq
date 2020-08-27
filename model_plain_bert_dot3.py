@@ -136,7 +136,7 @@ class Plain_bert(nn.Module):#
             reduction='sum',
             #ignore_index=self.padding_idx,
         )
-
+        print('loss: ',loss)
         return loss#,torch.tensor(sample_size).cuda()
         
 
