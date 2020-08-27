@@ -34,15 +34,18 @@ from fairseq.data import (
 )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
+from apex.parallel import DistributedDataParallel as DDP
 import apex
 from apex import amp
+import torch.multiprocessing as mp
+import torch.distributed as dist
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
 torch.cuda.manual_seed(1)
 
 
-cudaid=0
+#cudaid=0
 metrics=['group_auc','mean_mrr','ndcg@5;10']
 lr=1e-4
 T_warm=5000
@@ -137,7 +140,7 @@ def group_labels_func(labels, preds, group_keys):
 
 
 
-def test(model,arges):
+def test(model,args):
     preds = []
     labels = []
     imp_indexes = []
@@ -147,10 +150,13 @@ def test(model,arges):
     labels = []
     imp_indexes = []
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=900, npratio=-1,feature_file=feature_file,field=args.field)
+    iterator=NewsIterator(batch_size=1, npratio=-1,feature_file=feature_file,field=args.field,fp16=True)
     print('test...')
+    cudaid=0
+    #model = nn.DataParallel(model, device_ids=list(range(args.size)))
+    step=0
     with torch.no_grad():
-        data_batch=iterator.load_data_from_file(test_file)
+        data_batch=iterator.load_test_data_from_file(test_file)
         batch_t=0
         for  imp_index , user_index, his_id, candidate_id , label  in data_batch:
             batch_t+=len(candidate_id)
@@ -166,39 +172,58 @@ def test(model,arges):
             labels.extend(label)
             preds.extend(logit)
             imp_indexes.extend(imp_index)
-            print('all data: ',len(labels))
+            step+=1
+            if step%100==0:
+                print('all data: ',len(labels))
 
     group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
     res = cal_metric(group_labels, group_preds, metrics)
     return res['group_auc']
 
-def train(model,optimizer, args):
+def train(cudaid, args,model):
+
+    dist.init_process_group(
+        backend='nccl',
+        init_method='env://',
+        world_size=args.size,
+        rank=cudaid)
+
+    random.seed(1)
+    np.random.seed(1) 
+    torch.manual_seed(1) 
+    torch.cuda.manual_seed(1)
 
     print('params: '," T_warm: ",T_warm," all_iteration: ",all_iteration," lr: ",lr)
-    cuda_list=range(args.size)
-    accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
+    #cuda_list=range(args.size)
+    print('rank: ',cudaid)
+    torch.cuda.set_device(cudaid)
+    model.cuda(cudaid)
 
+    accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
+    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
+    model = DDP(model)
     
 
     #model = nn.DataParallel(model, device_ids=cuda_list)
-    torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
-    torch.cuda.set_device(cudaid)
+    # torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
+    # torch.cuda.set_device(cudaid)
     
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    #model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
     #model=torch.nn.parallel.DistributedDataParallel(model, device_ids=cuda_list)
     #model = torch.nn.DataParallel(model)
-    model=apex.parallel.DistributedDataParallel(model)
-
+    #model=apex.parallel.DistributedDataParallel(model)
 
     accum_batch_loss=0
-    iterator=NewsIterator(batch_size=args.gpu_size*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
+    iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
     train_file=os.path.join(args.data_dir, args.data_file)  
     #for epoch in range(0,100):
     batch_t=0
     iteration=0
-    print('train...',cuda_list)
+    print('train...',args.field)
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
-    writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
+    if cudaid==0:
+        writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
     epoch=0
     model.train()
     # batch_t=52880-1
@@ -216,7 +241,7 @@ def train(model,optimizer, args):
     #while True:
         all_loss=0
         all_batch=0
-        data_batch=iterator.load_data_from_file(train_file)
+        data_batch=iterator.load_data_from_file(train_file,cudaid,args.size)
         for  imp_index , user_index, his_id, candidate_id , label in data_batch:
             batch_t+=1
             assert candidate_id.shape[1]==2
@@ -238,30 +263,48 @@ def train(model,optimizer, args):
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
 
+            # num=0
+            # if cudaid==0:
+            #     for p in model.parameters():
+            #         if p.grad==None:
+            #             print('error: ',p.size())
+            #         else:
+            #             print('ok: ',p.size())
+            #             o=1
+            #             for item in p.size():
+            #                 o=o*item
+            #             num+=o
+            #     print(num)
+            #     assert 1==0
+
             if (batch_t)%accumulation_steps==0:
 
                 iteration+=1
                 adjust_learning_rate(optimizer,iteration)
                 optimizer.step()
                 optimizer.zero_grad()
-                print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
-                writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
-                writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
+                if cudaid==0:
+                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
+                    writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
+                    writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%500==0:
+                if iteration%500==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
-                    auc=test(model,args)
-                    print(auc)
-                    if auc>best_score:
-                        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
-                        best_score=auc
-                        print('best score: ',best_score)
-                        writer.add_scalar('auc/valid', auc, step)
-                        step+=1
+                    if cudaid==0:
+                        auc=test(model,args)
+                        print(auc)
+                        if auc>best_score:
+                            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
+                            best_score=auc
+                            print('best score: ',best_score)
+                            writer.add_scalar('auc/valid', auc, step)
+                            step+=1
                     torch.cuda.empty_cache()
                     model.train()
-        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
+        
+        if cudaid==0:
+            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
     #w.close()
             
 
@@ -276,7 +319,6 @@ if __name__ == '__main__':
     args = parse_args()
     model=Plain_bert(args)
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
     
     # for name, param in model.named_parameters():
     #     print(name,param.shape,param.requires_grad)
@@ -293,14 +335,18 @@ if __name__ == '__main__':
         if  'lm_head' not in name:
             pretrained_dict['encoder.'+name[31:]]=parameters
 
-    print(pretrained_dict.keys())
+    print(pretrained_dict.keys(),len(pretrained_dict.keys()))
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
 
-    # for item in model.parameters():
-    #   print(item.requires_grad)
-    model.cuda(cudaid)
-    train(model,optimizer,args)
+    args.world_size = args.size * 1
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '8888'
+    mp.spawn(train, nprocs=args.size, args=(args,model))
+
+
+    # model.cuda(cudaid)
+    # train(model,optimizer,args)
     
 
             

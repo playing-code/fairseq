@@ -240,7 +240,7 @@ class NewsIterator(object):
         his_size (int): max clicked news num in user click history.
     """
 
-    def __init__(self, batch_size, npratio, feature_file,field=None, col_spliter=" ", ID_spliter="%",mode='train'):
+    def __init__(self, batch_size, npratio, feature_file,field=None, fp16=False,col_spliter=" ", ID_spliter="%",mode='train'):
         """Initialize an iterator. Create necessary placeholders for the model.
         
         Args:
@@ -255,6 +255,7 @@ class NewsIterator(object):
         # self.doc_size = hparams.doc_size
         # self.his_size = hparams.his_size
         self.npratio = npratio
+        self.fp16=fp16
         # if mode=='train':
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_train')
         # else:
@@ -389,7 +390,7 @@ class NewsIterator(object):
         else:
             return (label, imp_index, user_index, candidate_news_index, click_news_index)
 
-    def load_data_from_file(self, infile):
+    def load_data_from_file(self, infile,rank=None,size=None):
         """Read and parse data from a file.
         
         Args:
@@ -413,7 +414,13 @@ class NewsIterator(object):
         c_len=[]
         all_his=[]
         all_can=[]
-        rd=open(infile, "r").readlines()
+        if rank==None:
+            rd=open(infile, "r").readlines()
+        else:
+            rd=open(infile, "r").readlines()
+            length=int(len(rd)/size)+1
+            rd=rd[rank*length:(rank+1)*length]
+            
         # with tf.gfile.GFile(infile, "r") as rd:
         line_index=0
         for line in rd:
@@ -442,7 +449,7 @@ class NewsIterator(object):
             # all_can.append(all_can_t)
             cnt += 1
             line_index+=1
-            if cnt >= self.batch_size or (cnt>=8 and line_index>=len(rd)):
+            if cnt >= self.batch_size or (cnt>=8 and line_index>=len(rd)) or (self.fp16 and line_index>=len(rd)):
                 #input_mask=
                 yield self._convert_data(
                     label_list,
@@ -483,7 +490,7 @@ class NewsIterator(object):
         all_his=[]
         all_can=[]
         data_index_record=''
-        #batch_size=1
+        batch_size=1
 
         # with tf.gfile.GFile(infile, "r") as rd:
         with open(infile, "r") as rd:
