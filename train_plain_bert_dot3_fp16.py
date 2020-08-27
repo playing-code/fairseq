@@ -35,6 +35,7 @@ from fairseq.data import (
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import apex
+from apex import amp
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
