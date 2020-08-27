@@ -34,7 +34,7 @@ from fairseq.data import (
 )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-import apex
+#import apex
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
@@ -194,23 +194,6 @@ def train(model,optimizer, args):
             loss.backward()
 
             if (batch_t)%accumulation_steps==0:
-                #print('candidate_id: ',candidate_id)
-                # total_norm=0
-                # for p in model.parameters():
-                #     if p.grad==None:
-                #         print('error: ',index,p.size(),p.grad)
-                #     param_norm = p.grad.data.norm(2)
-                #     total_norm += param_norm.item() ** 2
-                # total_norm = total_norm ** (1. / 2)
-                #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-
-                # total_clip_norm=0
-                # for p in model.parameters():
-                #     if p.grad==None:
-                #         print('error: ',index,p.size(),p.grad)
-                #     param_norm = p.grad.data.norm(2)
-                #     total_clip_norm += param_norm.item() ** 2
-                # total_clip_norm = total_clip_norm ** (1. / 2)
 
 
                 iteration+=1
@@ -243,8 +226,8 @@ if __name__ == '__main__':
     mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
     model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
 
-    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    #optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
 
     
     model_dict = model.state_dict()

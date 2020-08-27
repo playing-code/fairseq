@@ -260,10 +260,10 @@ class NewsIterator(object):
         # else:
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_dev')
         if field==None:
-            max_length=20
+            max_length=30
         elif field=='abstract':
             print('ok????')
-            max_length=60
+            max_length=100
         elif field=='domain':
             max_length=30
         elif field == 'category':
@@ -305,7 +305,6 @@ class NewsIterator(object):
         all_can=[]
         data_size=[]
         
-
         for news in cols[self.npratio + 1 :]:
             tokens = news.split(":")
             if "Impression" in tokens[0]:
@@ -414,73 +413,50 @@ class NewsIterator(object):
         c_len=[]
         all_his=[]
         all_can=[]
-
+        rd=open(infile, "r").readlines()
         # with tf.gfile.GFile(infile, "r") as rd:
-        with open(infile, "r") as rd:
-            for line in rd:
+        line_index=0
+        for line in rd:
 
-                (
-                    label,
-                    imp_index,
-                    user_index,
-                    candidate_news_index,
-                    click_news_index,
-                    # all_his_t,
-                    # all_can_t,
-                ) = self.parser_one_line(line)
-
-
-
-                candidate_news_indexes.append(candidate_news_index)
-
-
-                click_news_indexes.append(click_news_index)
-                imp_indexes.append(imp_index)
-                user_indexes.append(user_index)
-                label_list.append(label)
-                # c_input_masks.append(c_input_mask)
-                # c_segements.append(c_segement)
-                # h_input_masks.append(h_input_mask)
-                # h_segements.append(h_segement)
-                # h_len.append(h_len_t)
-                # c_len.append(c_len_t)
-                # all_his.append(all_his_t)
-                # all_can.append(all_can_t)
-                cnt += 1
-                if cnt >= self.batch_size:
-                    #input_mask=
-                    
-
-                    yield self._convert_data(
-                        label_list,
-                        imp_indexes,
-                        user_indexes,
-                        candidate_news_indexes,
-                        click_news_indexes,
-                        # c_input_masks,
-                        # c_segements,
-                        # h_input_masks,
-                        # h_segements,
-                        # h_len,
-                        # c_len,
-                        # all_his,
-                        # all_can,
-                    )
-                    candidate_news_indexes = []
-                    click_news_indexes = []
-                    label_list = []
-                    imp_indexes = []
-                    user_indexes = []
-                    #input_ids=[]
-                    # c_input_masks=[]
-                    # c_segements=[]
-                    # h_input_masks=[]
-                    # h_segements=[]
-                    # h_len=[]
-                    # c_len=[]
-                    # all_his=[]
-                    # all_can=[]
-                    cnt = 0
+            (
+                label,
+                imp_index,
+                user_index,
+                candidate_news_index,
+                click_news_index,
+                # all_his_t,
+                # all_can_t,
+            ) = self.parser_one_line(line)
+            candidate_news_indexes.append(candidate_news_index)
+            click_news_indexes.append(click_news_index)
+            imp_indexes.append(imp_index)
+            user_indexes.append(user_index)
+            label_list.append(label)
+            # c_input_masks.append(c_input_mask)
+            # c_segements.append(c_segement)
+            # h_input_masks.append(h_input_mask)
+            # h_segements.append(h_segement)
+            # h_len.append(h_len_t)
+            # c_len.append(c_len_t)
+            # all_his.append(all_his_t)
+            # all_can.append(all_can_t)
+            cnt += 1
+            line_index+=1
+            if cnt >= self.batch_size or (cnt>=8 and line_index>=len(rd)):
+                #input_mask=
+                yield self._convert_data(
+                    label_list,
+                    imp_indexes,
+                    user_indexes,
+                    candidate_news_indexes,
+                    click_news_indexes,
+                )
+                candidate_news_indexes = []
+                click_news_indexes = []
+                label_list = []
+                imp_indexes = []
+                user_indexes = []
+                cnt = 0
 
 
     def load_test_data_from_file(self, infile):
@@ -507,7 +483,7 @@ class NewsIterator(object):
         all_his=[]
         all_can=[]
         data_index_record=''
-        batch_size=1
+        #batch_size=1
 
         # with tf.gfile.GFile(infile, "r") as rd:
         with open(infile, "r") as rd:

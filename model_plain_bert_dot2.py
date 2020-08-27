@@ -381,12 +381,14 @@ class Plain_bert(nn.Module):#
 
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
+        print('his_features',his_features)
+        print('can_features',can_features)
 
-        his_features = self.dense(his_features)
-        his_features = self.layer_norm(his_features)
+        # his_features = self.dense(his_features)
+        # his_features = self.layer_norm(his_features)
 
-        can_features = self.dense(can_features)
-        can_features = self.layer_norm(can_features)
+        # can_features = self.dense(can_features)
+        # can_features = self.layer_norm(can_features)
 
 
 

@@ -388,20 +388,34 @@ class Plain_bert(nn.Module):#
         his_features = self.extract_features(h,his_padding_mask)#bsz,length,dim
         his_features=his_features[:,0,:]
 
+        print('his_features',his_features)
+
         his_features=self.dense_lm(his_features)
         his_features=self.activation_fn_lm(his_features)
+
+        print('his_features',his_features)
+
+
         his_features=self.layer_norm_lm(his_features)
 
+        print('his_features',his_features)
 
         his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
         #his_features=his_features.transpose(1,2).repeat(1,1,can_num).transpose(1,2)
 
         can_features=self.extract_features(l,can_padding_mask)
         can_features=can_features[:,0,:]
+
+        print('can_features',can_features)
         
         can_features=self.dense_lm(can_features)
         can_features=self.activation_fn_lm(can_features)
+
+        print('can_features',can_features)
+
         can_features=self.layer_norm_lm(can_features)
+
+        print('can_features',can_features)
         
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 

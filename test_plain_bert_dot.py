@@ -221,7 +221,7 @@ def test(model,args):#valid
             # print('candidate_id: ',candidate_id)
             # print('batch_t: ',batch_t)
             #print('???',logit)
-
+            assert 1==0
             logit=np.reshape(np.array(logit.cpu()), -1)
             label=np.reshape(np.array(label), -1)
             imp_index=np.reshape(np.array(imp_index), -1)
@@ -286,8 +286,8 @@ def exact_result3():
     x=1
     flag=''
     for num in range(4):
-        #f1=open('../data/res_transformer_xh_adduser3_'+str(num)+'_init.txt','r').readlines() 
-        f1=open('../data/res_roberta_dot_abstract_25'+str(num)+'.txt','r').readlines() 
+        #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_dot_abstract_6'+str(num)+'.txt','r').readlines() 
+        f1=open('../data/res_roberta_dot_abstract_24'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
@@ -488,6 +488,8 @@ if __name__ == '__main__':
     # exact_result3()
     # assert 1==0
 
+
+
     #model_num=sys.argv[1]
     # cuda_num=int(sys.argv[1])
     args = parse_args()
@@ -531,6 +533,8 @@ if __name__ == '__main__':
         # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
         #   pretrained_dict[name[31:]]=parameters
         pretrained_dict[name[7:]]=save_model[name]
+        # if 'dense_lm.weight' in name[7:] or 'dense_lm.bias' in name[7:] :
+        #     print(name ,save_model[name])
         # elif 'lm_head.' in name:
         #     pretrained_dict[name[14:]]=parameters
     # print('----------------------------------------------------------')
