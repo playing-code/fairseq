@@ -181,11 +181,13 @@ def train(model,optimizer, args):
     
 
     #model = nn.DataParallel(model, device_ids=cuda_list)
-    #torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
+    torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
+    torch.cuda.set_device(cudaid)
     
     model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
     #model=torch.nn.parallel.DistributedDataParallel(model, device_ids=cuda_list)
-    model = torch.nn.DataParallel(model)
+    #model = torch.nn.DataParallel(model)
+    model=apex.parallel.DistributedDataParallel(model)
 
 
     accum_batch_loss=0
