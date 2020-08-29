@@ -444,7 +444,7 @@ class NewsIterator(object):
                 click_news_index,
                 # all_his_t,
                 # all_can_t,
-            ) = self.parser_one_line(line)
+            ) = self.parser_one_line(line,False,length=1)
             candidate_news_indexes.append(candidate_news_index)
             click_news_indexes.append(click_news_index)
             imp_indexes.append(imp_index)
