@@ -206,7 +206,7 @@ def train(model,optimizer, args):
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%2==0:
+                if iteration%500==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     auc=test(model,args)
