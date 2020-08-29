@@ -243,6 +243,7 @@ def test(model,args):#valid
                 w.write('\n')
                 # for j in range(can_len[i][0]):
                 #     assert len(label[i])==can_len[i][0]
+                #     w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
                     #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
                     
                 # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
@@ -306,11 +307,11 @@ def exact_result3():
     flag=''
     for num in range(4):
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_dot_abstract_6'+str(num)+'.txt','r').readlines() 
-        f1=open('../data/res_roberta_dot_abstract_24'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
+        f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
-            imp_index=int(line[1])#+x
+            imp_index=int(line[1])+x
             label=int(float(line[5]))
             labels.append(label)
             preds.append(logit)

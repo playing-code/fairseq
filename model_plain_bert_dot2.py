@@ -187,7 +187,7 @@ class Plain_bert(nn.Module):#
 
 
    
-    def forward(self, his_id , candidate_id , label,  rank_mask=None, gpu_tracker=None,last_state_only: bool = True):#
+    def forward(self, his_id , candidate_id , label,  mode='train'):#
 
         
         # batch_size,can_num,can_legth=candidate_id.shape
@@ -275,6 +275,8 @@ class Plain_bert(nn.Module):#
 
         # res=res.squeeze(-1)
         res=torch.matmul(his_features,can_features.transpose(1,2))
+        if mode !='train':
+            return res.reshape(-1)
 
         res=res.reshape(-1,2)
         #print('???',res,sample_size)
