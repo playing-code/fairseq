@@ -141,7 +141,7 @@ def test(model,arges):
     labels = []
     imp_indexes = []
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=1800, npratio=-1,feature_file=feature_file,field=args.field)
+    iterator=NewsIterator(batch_size=900, npratio=-1,feature_file=feature_file,field=args.field)
     print('test...')
     with torch.no_grad():
         data_batch=iterator.load_data_from_file(test_file)
@@ -198,6 +198,7 @@ def train(model,optimizer, args):
     best_score=-1
     batch_t=0
     iteration=0
+    step=0
     # auc=test(model,args)
     # print(auc)
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
