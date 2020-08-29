@@ -373,7 +373,8 @@ class Plain_bert(nn.Module):#
         his_features = self.extract_features(h,his_padding_mask)#bsz,length,dim
         his_features=his_features[:,0,:]
 
-        his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
+        #his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
+        his_features=his_features.unsqueeze(1)
         #his_features=his_features.transpose(1,2).repeat(1,1,can_num).transpose(1,2)
 
         can_features=self.extract_features(l,can_padding_mask)
@@ -381,8 +382,8 @@ class Plain_bert(nn.Module):#
 
         can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1])
 
-        print('his_features',his_features)
-        print('can_features',can_features)
+        # print('his_features',his_features.shape)
+        # print('can_features',can_features.shape)
 
         # his_features = self.dense(his_features)
         # his_features = self.layer_norm(his_features)
@@ -402,9 +403,10 @@ class Plain_bert(nn.Module):#
 
         # res=res.squeeze(-1)
         res=torch.matmul(his_features,can_features.transpose(1,2))
+        res=res.squeeze(1)
 
 
-        res=res.reshape(-1)
+        #res=res.reshape(-1)
         #print('res: ',res)
 
         #res=F.sigmoid(res)

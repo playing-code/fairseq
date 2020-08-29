@@ -172,6 +172,14 @@ def parse_args():
     parser.add_argument("--field",
                     type=str,
                     help="local_rank for distributed training on gpus")
+    parser.add_argument("--can_length",
+                    type=int,
+                    default=-1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--gpu_size",
+                    type=int,
+                    default=-1,
+                    help="local_rank for distributed training on gpus")
 
 
     return parser.parse_args()            
@@ -195,13 +203,13 @@ def test(model,args):#valid
     #test_file='valid_ms_roberta_plain_large.txt'
     #test_file='valid_ms_roberta_plain.txt'
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=2, npratio=-1,feature_file=feature_file,field=args.field)
+    iterator=NewsIterator(batch_size=args.gpu_size, npratio=-1,feature_file=feature_file,field=args.field)
     print('test...')
     with torch.no_grad():
-        data_batch=iterator.load_test_data_from_file(test_file)
+        data_batch=iterator.load_test_data_from_file(test_file,args.can_length)
         #data_batch=iterator.load_data_from_file(test_file)
         batch_t=0
-        for  imp_index , user_index, his_id, candidate_id , label  in data_batch:
+        for  imp_index , user_index, his_id, candidate_id , label,can_len  in data_batch:
             batch_t+=len(candidate_id)
             # if batch_t<=167:
             #   continue
@@ -221,15 +229,26 @@ def test(model,args):#valid
             # print('candidate_id: ',candidate_id)
             # print('batch_t: ',batch_t)
             #print('???',logit)
-            assert 1==0
-            logit=np.reshape(np.array(logit.cpu()), -1)
-            label=np.reshape(np.array(label), -1)
+            #assert 1==0
+            logit=np.array(logit.cpu())
             imp_index=np.reshape(np.array(imp_index), -1)
+            assert len(imp_index)==len(logit)
+
+            # logit=np.reshape(np.array(logit.cpu()), -1)
+            # label=np.reshape(np.array(label), -1)
+            # imp_index=np.reshape(np.array(imp_index), -1)
             #print('batch_t:',batch_t)
             for i in range(len(imp_index)):
-                print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
-                w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
-
+                w.write('imp_index:'+str(imp_index[i])+' '+' '.join([str(logit[i][j]) for j in range(can_len[i][0])]))
+                w.write('\n')
+                # for j in range(can_len[i][0]):
+                #     assert len(label[i])==can_len[i][0]
+                    #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
+                    
+                # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
+                # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
+            #assert 1==0
+            print('imp_index: ',imp_index[-1])
             # preds.extend(logit)
             # labels.extend(label)
             # imp_indexes.extend(imp_index)
@@ -304,54 +323,6 @@ def exact_result3():
     print(res)
 
 
-
-
-def exact_result2():
-    preds = []
-    labels = []
-    imp_indexes = []
-    preds_t = []
-    labels_t = []
-    imp_indexes_t = []
-    x=1
-    flag=''
-    for num in range(40):
-        # f1=open('../data/res_transformer_xh_adduser0_'+str(num)+'.txt','r').readlines() 
-        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_concat5_'+str(num)+'.txt','r').readlines() 
-        for line in f1:
-            line=line.strip().split(' ')
-            if int(line[1])!=flag:
-                # print('???',labels_t)
-                # print('???',labels_t.count(0),len(labels_t))
-                if not( labels_t.count(0)==0 or labels_t.count(0)==len(labels_t)):
-                    x+=1
-                    preds.extend(preds_t)
-                    labels.extend(labels_t)
-                    imp_indexes.extend(imp_indexes_t)
-
-                flag=int(line[1])
-                preds_t = []
-                labels_t = []
-                imp_indexes_t = []         
-            #print('???',line)
-            logit=float(line[3])
-            # imp_index=int(line[1])+x
-            imp_index=x
-            label=int(float(line[5]))
-            labels_t.append(label)
-            preds_t.append(logit)
-            imp_indexes_t.append(imp_index)
-    if not( labels_t.count('0')==0 or labels_t.count('0')==len(labels_t)):
-        preds.extend(preds_t)
-        labels.append(labels_t)
-        imp_indexes.append(imp_indexes_t)
-            
-            
-    print('x: ',x)
-    group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
-
-    res = cal_metric(group_labels, group_preds, metrics)
-    print(res)
 
 
 def exact_result(flag):
