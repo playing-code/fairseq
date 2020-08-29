@@ -102,6 +102,35 @@ def adjust_learning_rate(optimizer,iteration,lr=lr, T_warm=T_warm, all_iteration
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+def group_labels_func(labels, preds, group_keys):
+    """Devide labels and preds into several group according to values in group keys.
+
+    Args:
+        labels (list): ground truth label list.
+        preds (list): prediction score list.
+        group_keys (list): group key list.
+
+    Returns:
+        all_labels: labels after group.
+        all_preds: preds after group.
+
+    """
+
+    all_keys = list(set(group_keys))
+    group_labels = {k: [] for k in all_keys}
+    group_preds = {k: [] for k in all_keys}
+    
+    for l, p, k in zip(labels, preds, group_keys):
+        group_labels[k].append(l)
+        group_preds[k].append(p)
+    all_labels = []
+    all_preds = []
+    for k in all_keys:
+        all_labels.append(group_labels[k])
+        all_preds.append(group_preds[k])
+
+    return all_labels, all_preds
+
 def test(model,arges):
     preds = []
     labels = []
