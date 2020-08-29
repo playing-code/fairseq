@@ -141,7 +141,7 @@ def test(model,arges):
     labels = []
     imp_indexes = []
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=900, npratio=-1,feature_file=feature_file,field=args.field)
+    iterator=NewsIterator(batch_size=1800, npratio=-1,feature_file=feature_file,field=args.field)
     print('test...')
     with torch.no_grad():
         data_batch=iterator.load_data_from_file(test_file)
@@ -235,7 +235,7 @@ def train(model,optimizer, args):
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%500==0:
+                if iteration%2==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     auc=test(model,args)
