@@ -7,7 +7,7 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot2 import  Plain_bert
+from model_plain_bert_dot3 import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -47,6 +47,22 @@ lr=1e-4
 T_warm=5000
 all_iteration=33040
 
+# def init_process(rank,local_rank,args,minutes=720):
+#     """ Initialize the distributed environment. """
+#     # os.environ['MASTER_ADDR'] = '127.0.0.1'
+#     # os.environ['MASTER_PORT'] = '1234'
+#     # torch.distributed.init_process_group(backend, rank=rank, world_size=size)
+#     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+#         master_ip='localhost', master_port='12345')
+#     dist.init_process_group(backend='nccl',
+#                 init_method=dist_init_method,
+#                 # If you have a larger dataset, you will need to increase it.
+#                 timeout=timedelta(minutes=minutes),
+#                 world_size=args.size,
+#                 rank=rank)
+#     num_gpus = torch.cuda.device_count()
+#     torch.cuda.set_device(local_rank)
+#     assert torch.distributed.is_initialized()
 
 def parse_args():
     parser = argparse.ArgumentParser("Transformer-XH")
@@ -73,11 +89,15 @@ def parse_args():
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
-    parser.add_argument("--batch_size",
+    parser.add_argument("--gpu_size",
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
-    parser.add_argument("--gpu_size",
+    parser.add_argument("--gpu_size_test",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--batch_size",
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
@@ -87,6 +107,7 @@ def parse_args():
     parser.add_argument("--field",
                     type=str,
                     help="local_rank for distributed training on gpus")
+
 
 
     return parser.parse_args()
@@ -101,6 +122,8 @@ def adjust_learning_rate(optimizer,iteration,lr=lr, T_warm=T_warm, all_iteration
         lr=0
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+
 
 def group_labels_func(labels, preds, group_keys):
     """Devide labels and preds into several group according to values in group keys.
@@ -131,7 +154,9 @@ def group_labels_func(labels, preds, group_keys):
 
     return all_labels, all_preds
 
-def test(model,arges):
+
+
+def test(model,args):
     preds = []
     labels = []
     imp_indexes = []
@@ -141,7 +166,7 @@ def test(model,arges):
     labels = []
     imp_indexes = []
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=900, npratio=-1,feature_file=feature_file,field=args.field)
+    iterator=NewsIterator(batch_size=arg.gpu_size_test, npratio=-1,feature_file=feature_file,field=args.field)
     print('test...')
     with torch.no_grad():
         data_batch=iterator.load_data_from_file(test_file)
@@ -156,10 +181,6 @@ def test(model,arges):
             logit=list(np.reshape(np.array(logit.cpu()), -1))
             label=list(np.reshape(np.array(label), -1))
             imp_index=list(np.reshape(np.array(imp_index), -1))
-            #print('???',len(logit),len(label))
-            # for i in range(len(label)):
-            #     print('logit: ',logit[i],label[i])
-            #assert 1==0
 
             labels.extend(label)
             preds.extend(logit)
@@ -173,14 +194,15 @@ def test(model,arges):
 def train(model,optimizer, args):
 
     print('params: '," T_warm: ",T_warm," all_iteration: ",all_iteration," lr: ",lr)
-    #writer = SummaryWriter('./model_snapshot_error')
-    # cuda_list=range(cuda_num)
     cuda_list=range(args.size)
-    #model.cuda(cudaid)
-    # accumulation_steps=40
     accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
-    #accumulation_steps=1
-    model = nn.DataParallel(model, device_ids=cuda_list)
+    #model = nn.DataParallel(model, device_ids=cuda_list)
+
+    # torch.cuda.set_device(cudaid)
+    # torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
+    # model=torch.nn.parallel.DistributedDataParallel(model, device_ids=cuda_list,output_device=0,find_unused_parameters=True)
+
+    model = torch.nn.DataParallel(model,device_ids=cuda_list)
     accum_batch_loss=0
     iterator=NewsIterator(batch_size=args.gpu_size*args.size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
     train_file=os.path.join(args.data_dir, args.data_file)  
@@ -190,19 +212,20 @@ def train(model,optimizer, args):
     print('train...',cuda_list)
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
     writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
-    
     epoch=0
     model.train()
     # batch_t=52880-1
     # iteration=3305-1
-    best_score=-1
     batch_t=0
     iteration=0
     step=0
-    # auc=test(model,args)
-    # print(auc)
+    best_score=-1
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
-    for epoch in range(10,20):
+
+    # model.eval()
+    # auc=test(model,args)
+
+    for epoch in range(0,10):
     #while True:
         all_loss=0
         all_batch=0
@@ -213,14 +236,10 @@ def train(model,optimizer, args):
             his_id=his_id.cuda(cudaid)
             candidate_id= candidate_id.cuda(cudaid)
             label = label.cuda(cudaid)
-            loss,sample_size=model(his_id,candidate_id, label)
+            loss=model(his_id,candidate_id, label)
 
-            sample_size=float(sample_size.sum())
+            sample_size=candidate_id.shape[0]
             loss=loss.sum()/sample_size/math.log(2)
-            # sample_size=float(sample_size)
-            # loss=loss/sample_size/math.log(2)
-            #print(' batch_t: ',batch_t, '  epoch: ',epoch,' loss: ',float(loss))
-            #print('???loss',loss)
             
             accum_batch_loss+=float(loss)
 
@@ -232,14 +251,11 @@ def train(model,optimizer, args):
 
             if (batch_t)%accumulation_steps==0:
 
-
                 iteration+=1
                 adjust_learning_rate(optimizer,iteration)
-                
                 optimizer.step()
                 optimizer.zero_grad()
                 print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
-                #w.write(' batch_t: '+str(batch_t)+' iteration: '+str(iteration)+' epoch: '+str(epoch)+' accum_batch_loss: '+str(accum_batch_loss/accumulation_steps)+'\n')
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
@@ -269,51 +285,32 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(1)
     #main()
     args = parse_args()
-    mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
-    model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
-
+    model=Plain_bert(args)
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
     optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
-
     
+    # for name, param in model.named_parameters():
+    #     print(name,param.shape,param.requires_grad)
+
+    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
+
+    #roberta = RobertaModel.from_pretrained(args.save_dir, checkpoint_file='checkpoint_best.pt')
+
+    # for name, param in roberta.named_parameters():
+    #     print(name,param.shape,param.requires_grad)
+
     model_dict = model.state_dict()
-    # for k, v in model_dict.items(): 
-    #     print(k,v.size())
-    # print('----------------------------------------------------')
-
-    #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    model_file=os.path.join(args.save_dir,'Plain_robert_dot5.pkl')
-    save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
-
     pretrained_dict={}
-    #for name,parameters in roberta.named_parameters():
-    for name in save_model:
-        #print(name,':',save_model[name].size())
-        # print(name,':',parameters.size())
-        # if "layer_norm" in  name:
-        #   print(name, save_model[name], save_model[name].shape)
-        # if ( 'layers' in name ):
-        #   pretrained_dict[name[31:]]=parameters
-        # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
-        #   pretrained_dict[name[31:]]=parameters
+    for name,parameters in roberta.named_parameters():
+        if  'lm_head' not in name:
+            pretrained_dict['encoder.'+name[31:]]=parameters
 
-        # if  'lm_head' not in name:
-        #     pretrained_dict[name[31:]]=parameters
-        pretrained_dict[name[7:]]=save_model[name]
-        #pretrained_dict[name]=save_model[name]
-        # elif 'lm_head.' in name:
-        #     pretrained_dict[name[14:]]=parameters
-    # print('----------------------------------------------------------')
     print(pretrained_dict.keys())
-    #assert 1==0
-
     model_dict.update(pretrained_dict)
-    #print(model_dict.keys())
     model.load_state_dict(model_dict)
+
     # for item in model.parameters():
     #   print(item.requires_grad)
-        
-    
     model.cuda(cudaid)
     train(model,optimizer,args)
     
