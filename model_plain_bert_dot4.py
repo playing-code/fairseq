@@ -168,7 +168,8 @@ class Plain_bert(nn.Module):#
         res=torch.matmul(his_features,can_features.transpose(1,2))
 
 
-        res=res.reshape(-1)
+        #res=res.reshape(-1)
+        res=res.squeeze(1)
         #print('res: ',res)
 
         #res=F.sigmoid(res)

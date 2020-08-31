@@ -7,7 +7,8 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot2 import  Plain_bert
+# from model_plain_bert_dot2 import  Plain_bert
+from model_plain_bert_dot3 import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -239,11 +240,11 @@ def test(model,args):#valid
             # imp_index=np.reshape(np.array(imp_index), -1)
             #print('batch_t:',batch_t)
             for i in range(len(imp_index)):
-                w.write('imp_index:'+str(imp_index[i])+' '+' '.join([str(logit[i][j]) for j in range(can_len[i][0])]))
-                w.write('\n')
-                # for j in range(can_len[i][0]):
-                #     assert len(label[i])==can_len[i][0]
-                #     w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
+                # w.write('imp_index:'+str(imp_index[i])+' '+' '.join([str(logit[i][j]) for j in range(can_len[i][0])]))
+                # w.write('\n')
+                for j in range(can_len[i][0]):
+                    assert len(label[i])==can_len[i][0]
+                    w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
                     #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
                     
                 # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
@@ -305,19 +306,24 @@ def exact_result3():
     imp_indexes_t = []
     x=1
     flag=''
-    for num in range(4):
+    count=0
+    for num in [30,90,150,300]:
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_dot_abstract_6'+str(num)+'.txt','r').readlines() 
-        f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
+        # f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
+        f1=open('../data/res_dot3_fp16_'+str(num)+'.txt','r').readlines()
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
-            imp_index=int(line[1])+x
+            imp_index=int(line[1])
             label=int(float(line[5]))
             labels.append(label)
             preds.append(logit)
             imp_indexes.append(imp_index)
-        x=imp_indexes[-1]+1
-    print('x: ',x,len(labels))
+            if imp_index != flag:
+                flag=imp_index
+                count+=1
+        #x=imp_indexes[-1]+1
+    print('x: ',count,len(labels))
     group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
 
     res = cal_metric(group_labels, group_preds, metrics)
@@ -472,8 +478,10 @@ if __name__ == '__main__':
     # cudaid=int(sys.argv[2])
     # test_file=sys.argv[3]
     #main()
-    mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
-    model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
+    # mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
+    # model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
+    model=Plain_bert(args)
+
     iteration=0
     batch_t=0
     T_warm=10000
@@ -484,6 +492,7 @@ if __name__ == '__main__':
 
     
     model_dict = model.state_dict()
+    
     # for k, v in model_dict.items(): 
     #     print(k,v.size())
     # print('----------------------------------------------------')
@@ -493,6 +502,7 @@ if __name__ == '__main__':
     model_file=os.path.join(args.save_dir,args.model_file)
 
     save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
+    
     pretrained_dict={}
     #for name,parameters in roberta.named_parameters():
     for name in save_model:
@@ -505,6 +515,7 @@ if __name__ == '__main__':
         # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
         #   pretrained_dict[name[31:]]=parameters
         pretrained_dict[name[7:]]=save_model[name]
+        #pretrained_dict[name]=save_model[name]
         # if 'dense_lm.weight' in name[7:] or 'dense_lm.bias' in name[7:] :
         #     print(name ,save_model[name])
         # elif 'lm_head.' in name:
