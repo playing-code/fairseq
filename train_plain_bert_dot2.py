@@ -249,14 +249,14 @@ def train(model,optimizer, args):
                     auc=test(model,args)
                     print(auc)
                     if auc>best_score:
-                        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
+                        #torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best_0.pkl'))
                         best_score=auc
                         print('best score: ',best_score)
                         writer.add_scalar('auc/valid', auc, step)
                         step+=1
                     torch.cuda.empty_cache()
                     model.train()
-        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
+        #torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
     #w.close()
             
 
