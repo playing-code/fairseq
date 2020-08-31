@@ -159,7 +159,7 @@ def parse_args():
     parser.add_argument("--feature_file",
                     type=str,
                     help="local_rank for distributed training on gpus")
-     parser.add_argument("--model_version",
+    parser.add_argument("--model_version",
                     type=str,
                     help="local_rank for distributed training on gpus")
     # parser.add_argument("--size",
