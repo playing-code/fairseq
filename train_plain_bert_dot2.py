@@ -156,7 +156,7 @@ def test(model,arges):
             logit=list(np.reshape(np.array(logit.cpu()), -1))
             label=list(np.reshape(np.array(label), -1))
             imp_index=list(np.reshape(np.array(imp_index), -1))
-            #print('???',len(logit),len(label))
+            print('???',len(logit),len(label))
             # for i in range(len(label)):
             #     print('logit: ',logit[i],label[i])
             #assert 1==0
@@ -243,7 +243,7 @@ def train(model,optimizer, args):
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%2==0:
+                if iteration%10==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     auc=test(model,args)

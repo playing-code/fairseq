@@ -248,7 +248,7 @@ def test(model,args):#valid
                 for j in range(can_len[i][0]):
                     assert len(label[i])==can_len[i][0]
                     w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
-                    #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
+                    print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
                     
                 # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
                 # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
