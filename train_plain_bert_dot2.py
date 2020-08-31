@@ -156,7 +156,7 @@ def test(model,arges):
             logit=list(np.reshape(np.array(logit.cpu()), -1))
             label=list(np.reshape(np.array(label), -1))
             imp_index=list(np.reshape(np.array(imp_index), -1))
-            print('???',len(logit),len(label))
+            #print('???',len(logit),len(label))
             # for i in range(len(label)):
             #     print('logit: ',logit[i],label[i])
             #assert 1==0
