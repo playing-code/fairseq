@@ -248,7 +248,7 @@ def test(model,args):#valid
                 for j in range(can_len[i][0]):
                     assert len(label[i])==can_len[i][0]
                     w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
-                    print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
+                    #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
                     
                 # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
                 # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
@@ -311,9 +311,9 @@ def exact_result3():
     flag=''
     count=0
     for num in [30,90,150,300]:
-        #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_dot_abstract_6'+str(num)+'.txt','r').readlines() 
+        #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_dot3_abs_fp16_'+str(num)+'.txt','r').readlines() 
         # f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
-        f1=open('../data/res_dot3_fp16_'+str(num)+'.txt','r').readlines()
+        f1=open('../data/res_roberta_dot2_sample_'+str(num)+'.txt','r').readlines()
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
@@ -489,6 +489,10 @@ if __name__ == '__main__':
     elif args.model_version=='dot3':
         from model_plain_bert_dot3 import  Plain_bert
         model=Plain_bert(args)
+    elif args.model_version=='dot2':
+        from model_plain_bert_dot2 import  Plain_bert
+        mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
+        model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
 
     iteration=0
     batch_t=0
