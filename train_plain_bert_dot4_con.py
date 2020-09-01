@@ -183,6 +183,7 @@ def test(model,args):
             imp_index=list(np.reshape(np.array(imp_index), -1))
 
             assert len(logit)==len(label)
+            assert len(logit)==len(imp_index)
 
             labels.extend(label)
             preds.extend(logit)
@@ -265,17 +266,18 @@ def train(model,optimizer, args):
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%2==0:
+                if iteration%500==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     auc=test(model,args)
                     print(auc)
+                    writer.add_scalar('auc/valid', auc, step)
+                    step+=1
                     if auc>best_score:
                         torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
                         best_score=auc
                         print('best score: ',best_score)
-                        writer.add_scalar('auc/valid', auc, step)
-                        step+=1
+                        
                     torch.cuda.empty_cache()
                     model.train()
         torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))

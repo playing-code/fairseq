@@ -87,6 +87,9 @@ def parse_args():
     parser.add_argument("--field",
                     type=str,
                     help="local_rank for distributed training on gpus")
+    parser.add_argument("--model_file",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
 
 
     return parser.parse_args()
@@ -220,7 +223,7 @@ def train(model,optimizer, args):
             # sample_size=float(sample_size)
             # loss=loss/sample_size/math.log(2)
             #print(' batch_t: ',batch_t, '  epoch: ',epoch,' loss: ',float(loss))
-            #print('???loss',loss)
+            print('???loss',loss)
             
             accum_batch_loss+=float(loss)
 
@@ -243,7 +246,7 @@ def train(model,optimizer, args):
                 writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                 writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%10==0:
+                if iteration%500==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     auc=test(model,args)
@@ -282,7 +285,7 @@ if __name__ == '__main__':
     # print('----------------------------------------------------')
 
     #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    model_file=os.path.join(args.save_dir,'Plain_robert_dot5.pkl')
+    model_file=os.path.join(args.save_dir,args.model_file)
     save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
 
     pretrained_dict={}

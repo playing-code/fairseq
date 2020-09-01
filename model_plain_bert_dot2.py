@@ -275,6 +275,7 @@ class Plain_bert(nn.Module):#
 
         # res=res.squeeze(-1)
         res=torch.matmul(his_features,can_features.transpose(1,2))
+        print('???',res)
         if mode !='train':
             return res.reshape(-1)
 
