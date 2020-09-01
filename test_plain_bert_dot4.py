@@ -311,9 +311,9 @@ def exact_result3():
     flag=''
     count=0
     for num in [30,90,150,300]:
-        #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_dot3_abs_fp16_'+str(num)+'.txt','r').readlines() 
+        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_dot4_con_'+str(num)+'.txt','r').readlines() 
         # f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
-        f1=open('../data/res_roberta_dot2_sample_'+str(num)+'.txt','r').readlines()
+        #f1=open('../data/res_roberta_dot4_con_'+str(num)+'.txt','r').readlines()
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
@@ -466,8 +466,8 @@ if __name__ == '__main__':
     # flag=sys.argv[1]
     # exact_result(flag)
     
-    # exact_result3()
-    # assert 1==0
+    exact_result3()
+    assert 1==0
 
 
 

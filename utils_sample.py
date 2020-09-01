@@ -261,23 +261,24 @@ class NewsIterator(object):
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_train')
         # else:
         #     self.news_dict=read_features_roberta('/home/shuqilu/Recommenders/data/data2/MINDlarge_dev')
-        if field==None:
+        if field=='title':
             max_length=30
         elif field=='abstract':
-            print('ok????')
             max_length=100
-        elif field=='domain':
-            max_length=30
+        # elif field=='domain':
+        #     max_length=30
         elif field == 'category':
             max_length=30
         elif field=='origin':
             max_length=20
+        elif field=='cat_abs':
+            max_length=120
 
         self.max_length=max_length
         self.news_dict=read_features_roberta(feature_file,max_length)
 
 
-    def parser_one_line(self, line,test=False,length=30):
+    def parser_one_line(self, line,test=False,length=None):
         """Parse one string line into feature values.
         
         Args:
@@ -346,9 +347,10 @@ class NewsIterator(object):
                 can_list=tokens[1].split(",")
                 candidate_news_index=[self.news_dict[item] for item in can_list]
                 can_len.append(len(candidate_news_index))
-                assert len(candidate_news_index)<=length
-                while len(candidate_news_index)<length:
-                    candidate_news_index.append([0]+[1]*(self.max_length-1))
+                if length!=None:
+                    assert len(candidate_news_index)<=length
+                    while len(candidate_news_index)<length:
+                        candidate_news_index.append([0]+[1]*(self.max_length-1))
 
                 # count0=w_temp.count(0)
                 # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
