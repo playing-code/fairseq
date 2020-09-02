@@ -7,7 +7,8 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_dot2 import  Plain_bert
+# from model_plain_bert_dot2 import  Plain_bert
+from model_plain_bert_hf import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -273,7 +274,8 @@ if __name__ == '__main__':
     #main()
     args = parse_args()
     mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
-    model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
+    # model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
+    model=Plain_bert(args)
 
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
     optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
@@ -285,34 +287,34 @@ if __name__ == '__main__':
     # print('----------------------------------------------------')
 
     #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    model_file=os.path.join(args.save_dir,args.model_file)
-    save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
+    #model_file=os.path.join(args.save_dir,args.model_file)
+    # save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
 
-    pretrained_dict={}
-    #for name,parameters in roberta.named_parameters():
-    for name in save_model:
-        #print(name,':',save_model[name].size())
-        # print(name,':',parameters.size())
-        # if "layer_norm" in  name:
-        #   print(name, save_model[name], save_model[name].shape)
-        # if ( 'layers' in name ):
-        #   pretrained_dict[name[31:]]=parameters
-        # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
-        #   pretrained_dict[name[31:]]=parameters
+    # pretrained_dict={}
+    # #for name,parameters in roberta.named_parameters():
+    # for name in save_model:
+    #     #print(name,':',save_model[name].size())
+    #     # print(name,':',parameters.size())
+    #     # if "layer_norm" in  name:
+    #     #   print(name, save_model[name], save_model[name].shape)
+    #     # if ( 'layers' in name ):
+    #     #   pretrained_dict[name[31:]]=parameters
+    #     # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
+    #     #   pretrained_dict[name[31:]]=parameters
 
-        # if  'lm_head' not in name:
-        #     pretrained_dict[name[31:]]=parameters
-        pretrained_dict[name[7:]]=save_model[name]
-        #pretrained_dict[name]=save_model[name]
-        # elif 'lm_head.' in name:
-        #     pretrained_dict[name[14:]]=parameters
-    # print('----------------------------------------------------------')
-    print(pretrained_dict.keys())
-    #assert 1==0
+    #     # if  'lm_head' not in name:
+    #     #     pretrained_dict[name[31:]]=parameters
+    #     pretrained_dict[name[7:]]=save_model[name]
+    #     #pretrained_dict[name]=save_model[name]
+    #     # elif 'lm_head.' in name:
+    #     #     pretrained_dict[name[14:]]=parameters
+    # # print('----------------------------------------------------------')
+    # print(pretrained_dict.keys())
+    # #assert 1==0
 
-    model_dict.update(pretrained_dict)
-    #print(model_dict.keys())
-    model.load_state_dict(model_dict)
+    # model_dict.update(pretrained_dict)
+    # #print(model_dict.keys())
+    # model.load_state_dict(model_dict)
     # for item in model.parameters():
     #   print(item.requires_grad)
         

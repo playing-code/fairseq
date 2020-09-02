@@ -170,12 +170,12 @@ def test(model,args):
             label=list(np.reshape(np.array(label), -1))
             imp_index=list(np.reshape(np.array(imp_index), -1))
 
-            #assert len(imp_index)==1
+            assert len(imp_index)==1
             imp_index=imp_index*len(logit)
 
-            #assert len(logit)==len(label)
-            #assert len(logit)==len(imp_index)
-            #assert np.sum(np.array(label))!=0
+            assert len(logit)==len(label)
+            assert len(logit)==len(imp_index)
+            assert np.sum(np.array(label))!=0
 
 
             labels.extend(label)
@@ -283,7 +283,7 @@ def train(cudaid, args,model):
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%500==0 and cudaid==0:
+                if iteration%2==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
