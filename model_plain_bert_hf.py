@@ -18,11 +18,12 @@ class Plain_bert(nn.Module):#
     def __init__(self,args):
         super().__init__()
         embedding_dim=768
+        self.roberta=RobertaForSequenceClassification.from_pretrained('roberta-base', return_dict=True,output_hidden_states=True)
+
         self.dense = nn.Linear(embedding_dim, embedding_dim)
         self.layer_norm = nn.LayerNorm(768)
         self.init_weights(self.dense)
 
-        self.roberta=RobertaForSequenceClassification.from_pretrained('roberta-base', return_dict=True,output_hidden_states=True)
 
 
     def init_weights(self, module):

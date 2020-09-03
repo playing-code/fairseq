@@ -313,14 +313,17 @@ if __name__ == '__main__':
     model=Plain_bert(args)
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
     
-    # for name, param in model.named_parameters():
-    #     print(name,param.shape,param.requires_grad)
+    for name, param in model.named_parameters():
+        print(name,param.shape,param.requires_grad,param)
+        break
 
-    # roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    # #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
+    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
+    #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
 
-    # # for name, param in roberta.named_parameters():
-    # #     print(name,param.shape,param.requires_grad)
+    for name, param in roberta.named_parameters():
+        print(name,param.shape,param.requires_grad,param)
+        break
+    assert 1==0
 
 
     # model_dict = model.state_dict()
