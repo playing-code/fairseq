@@ -246,9 +246,9 @@ def test(model,args):#valid
                 # w.write('imp_index:'+str(imp_index[i])+' '+' '.join([str(logit[i][j]) for j in range(can_len[i][0])]))
                 # w.write('\n')
                 for j in range(can_len[i][0]):
-                    assert len(label[i])==can_len[i][0]
-                    w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
-                    #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
+                    #assert len(label[i])==can_len[i][0]
+                    w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+'\n')
+                    #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j]))
                     
                 # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
                 # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
@@ -311,9 +311,9 @@ def exact_result3():
     flag=''
     count=0
     for num in [30,90,150,300]:
-        #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_dot4_con_'+str(num)+'.txt','r').readlines() 
+        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_roberta_dot4_abs_cat_fp16_add_'+str(num)+'.txt','r').readlines() 
         # f1=open('../data/res_roberta_dot25'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
-        f1=open('../data/res_roberta_dot4_con_'+str(num)+'.txt','r').readlines()
+        #f1=open('../data/res_roberta_dot4_con_'+str(num)+'.txt','r').readlines()
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
