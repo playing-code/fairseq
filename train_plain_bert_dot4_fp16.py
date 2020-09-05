@@ -91,6 +91,9 @@ def parse_args():
     parser.add_argument("--field",
                     type=str,
                     help="local_rank for distributed training on gpus")
+    parser.add_argument("--model_file",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
 
 
 
@@ -283,7 +286,7 @@ def train(cudaid, args,model):
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%2==0 and cudaid==0:
+                if iteration%500==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
@@ -318,7 +321,7 @@ if __name__ == '__main__':
     #     print(name,param.shape,param.requires_grad)
 
     #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
+    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file=args.model_file)
 
     # for name, param in roberta.named_parameters():
     #     print(name,param.shape,param.requires_grad)
