@@ -111,16 +111,13 @@ def adjust_learning_rate(optimizer,iteration,lr=lr, T_warm=T_warm, all_iteration
 
 def group_labels_func(labels, preds, group_keys):
     """Devide labels and preds into several group according to values in group keys.
-
     Args:
         labels (list): ground truth label list.
         preds (list): prediction score list.
         group_keys (list): group key list.
-
     Returns:
         all_labels: labels after group.
         all_preds: preds after group.
-
     """
 
     all_keys = list(set(group_keys))
@@ -313,17 +310,17 @@ if __name__ == '__main__':
     model=Plain_bert(args)
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
     
-    for name, param in model.named_parameters():
-        print(name,param.shape,param.requires_grad,param)
-        break
+    # for name, param in model.named_parameters():
+    #     print(name,param.shape,param.requires_grad,param)
+    #     break
 
-    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
+    # roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
+    # #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
 
-    for name, param in roberta.named_parameters():
-        print(name,param.shape,param.requires_grad,param)
-        break
-    assert 1==0
+    # for name, param in roberta.named_parameters():
+    #     print(name,param.shape,param.requires_grad,param)
+    #     break
+    # assert 1==0
 
 
     # model_dict = model.state_dict()
@@ -344,30 +341,3 @@ if __name__ == '__main__':
 
     # model.cuda(cudaid)
     # train(model,optimizer,args)
-    
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

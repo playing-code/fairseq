@@ -273,6 +273,8 @@ class NewsIterator(object):
             max_length=20
         elif field=='cat_abs':
             max_length=120
+        elif field=='cat_abs2':
+            max_length=128
 
         self.max_length=max_length
         self.news_dict=read_features_roberta(feature_file,max_length)
