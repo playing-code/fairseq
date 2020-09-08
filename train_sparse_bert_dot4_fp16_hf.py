@@ -7,8 +7,9 @@ import sys
 import torch
 import argparse
 import os
-from model_plain_bert_hf import  Plain_bert
-from fairseq.models.roberta import RobertaModel
+# from model_plain_bert_hf import  Plain_bert
+from model_sparse_bert_hf import  Plain_bert
+# from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
 import utils_sample as utils
@@ -19,24 +20,24 @@ import utils_sample as utils
 #from multiprocessing import Pool
 import torch.nn as nn
 import math
-from fairseq.data import (
-    data_utils,
-    Dictionary,
-    IdDataset,
-    MaskTokensDataset,
-    NestedDictionaryDataset,
-    NumelDataset,
-    NumSamplesDataset,
-    PadDataset,
-    PrependTokenDataset,
-    SortDataset,
-    TokenBlockDataset,
-)
+# from fairseq.data import (
+#     data_utils,
+#     Dictionary,
+#     IdDataset,
+#     MaskTokensDataset,
+#     NestedDictionaryDataset,
+#     NumelDataset,
+#     NumSamplesDataset,
+#     PadDataset,
+#     PrependTokenDataset,
+#     SortDataset,
+#     TokenBlockDataset,
+# )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-from apex.parallel import DistributedDataParallel as DDP
-import apex
-from apex import amp
+# from apex.parallel import DistributedDataParallel as DDP
+# import apex
+# from apex import amp
 import torch.multiprocessing as mp
 import torch.distributed as dist
 random.seed(1)
@@ -111,13 +112,16 @@ def adjust_learning_rate(optimizer,iteration,lr=lr, T_warm=T_warm, all_iteration
 
 def group_labels_func(labels, preds, group_keys):
     """Devide labels and preds into several group according to values in group keys.
+
     Args:
         labels (list): ground truth label list.
         preds (list): prediction score list.
         group_keys (list): group key list.
+
     Returns:
         all_labels: labels after group.
         all_preds: preds after group.
+
     """
 
     all_keys = list(set(group_keys))
@@ -186,11 +190,11 @@ def test(model,args):
 
 def train(cudaid, args,model):
 
-    dist.init_process_group(
-        backend='nccl',
-        init_method='env://',
-        world_size=args.size,
-        rank=cudaid)
+    # dist.init_process_group(
+    #     backend='nccl',
+    #     init_method='env://',
+    #     world_size=args.size,
+    #     rank=cudaid)
 
     random.seed(1)
     np.random.seed(1) 
@@ -204,9 +208,11 @@ def train(cudaid, args,model):
     model.cuda(cudaid)
 
     accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
-    model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
-    model = DDP(model)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    #optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    
+    #model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
+    # model = DDP(model)
     
 
     #model = nn.DataParallel(model, device_ids=cuda_list)
@@ -246,6 +252,7 @@ def train(cudaid, args,model):
         all_loss=0
         all_batch=0
         data_batch=iterator.load_data_from_file(train_file,cudaid,args.size)
+        print('load ok...')
         for  imp_index , user_index, his_id, candidate_id , label in data_batch:
             batch_t+=1
             assert candidate_id.shape[1]==2
@@ -263,9 +270,9 @@ def train(cudaid, args,model):
             all_batch+=1
 
             loss = loss/accumulation_steps
-            #loss.backward()
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            loss.backward()
+            # with amp.scale_loss(loss, optimizer) as scaled_loss:
+            #     scaled_loss.backward()
 
             if (batch_t)%accumulation_steps==0:
 
@@ -278,7 +285,7 @@ def train(cudaid, args,model):
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%2==0 and cudaid==0:
+                if iteration%500==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
@@ -333,11 +340,38 @@ if __name__ == '__main__':
     # model_dict.update(pretrained_dict)
     # model.load_state_dict(model_dict)
 
-    args.world_size = args.size * 1
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '8888'
-    mp.spawn(train, nprocs=args.size, args=(args,model))
+    # args.world_size = args.size * 1
+    # os.environ['MASTER_ADDR'] = 'localhost'
+    # os.environ['MASTER_PORT'] = '8888'
+    # mp.spawn(train, nprocs=args.size, args=(args,model))
 
 
-    # model.cuda(cudaid)
-    # train(model,optimizer,args)
+    #model.cuda(cudaid)
+    train(0,args,model)
+    
+
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

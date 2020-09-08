@@ -91,6 +91,43 @@ class Plain_bert(nn.Module):#
         #print('loss: ',loss)
         return loss
 
+    def predict(self,his_id , candidate_id):
+        batch_size,can_num,can_legth=candidate_id.shape
+        batch_size,_,his_length=his_id.shape
+        sample_size=candidate_id.shape[0]
+        his_id=his_id.reshape(-1,his_id.shape[-1])
+        candidate_id=candidate_id.reshape(-1,can_legth)
+
+        # his_padding_mask = 1-his_id.eq(1).unsqueeze(-1).type_as(his_id)#
+        # can_padding_mask=1-candidate_id.eq(1).unsqueeze(-1).type_as(candidate_id)
+
+        his_padding_mask = 1-his_id.eq(1).type_as(his_id)#
+        can_padding_mask=1-candidate_id.eq(1).type_as(candidate_id)
+
+        outputs_his = self.roberta(input_ids=his_id, attention_mask=his_padding_mask, labels=None)
+        #print('???',len(outputs_his.hidden_states))
+        his_features=outputs_his.hidden_states[-1][:,0,:]
+
+        outputs_can = self.roberta(input_ids=candidate_id, attention_mask=can_padding_mask, labels=None)
+        can_features=outputs_can.hidden_states[-1][:,0,:]
+
+        his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
+        can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1]) 
+
+
+        his_features = self.dense(his_features)
+        his_features = self.layer_norm(his_features)
+
+        can_features = self.dense(can_features)
+        can_features = self.layer_norm(can_features)
+
+
+        res=torch.matmul(his_features,can_features.transpose(1,2))
+        res=res.squeeze(1)    
+
+
+        return res
+
 
 
 

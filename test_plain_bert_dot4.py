@@ -250,8 +250,8 @@ def test(model,args):#valid
                 # w.write('\n')
                 for j in range(can_len[i][0]):
                     #assert len(label[i])==can_len[i][0]
-                    w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+'\n')
-                    #print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j]))
+                    w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
+                    print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
                     
                 # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
                 # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
@@ -343,8 +343,8 @@ if __name__ == '__main__':
     # flag=sys.argv[1]
     # exact_result(flag)
     
-    exact_result3()
-    assert 1==0
+    # exact_result3()
+    # assert 1==0
 
 
 
@@ -370,6 +370,9 @@ if __name__ == '__main__':
         from model_plain_bert_dot2 import  Plain_bert
         mydict=utils.load_dict(os.path.join(args.data_dir,'roberta.base'))
         model=Plain_bert(padding_idx=mydict['<pad>'],vocab_size=len(mydict))
+    elif args.model_version=='hf':
+        from model_plain_bert_hf import Plain_bert
+        model=Plain_bert(args)
 
     iteration=0
     batch_t=0
