@@ -35,9 +35,9 @@ import math
 # )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-# from apex.parallel import DistributedDataParallel as DDP
-# import apex
-# from apex import amp
+from apex.parallel import DistributedDataParallel as DDP
+import apex
+from apex import amp
 import torch.multiprocessing as mp
 import torch.distributed as dist
 random.seed(1)
@@ -190,11 +190,11 @@ def test(model,args):
 
 def train(cudaid, args,model):
 
-    # dist.init_process_group(
-    #     backend='nccl',
-    #     init_method='env://',
-    #     world_size=args.size,
-    #     rank=cudaid)
+    dist.init_process_group(
+        backend='nccl',
+        init_method='env://',
+        world_size=args.size,
+        rank=cudaid)
 
     random.seed(1)
     np.random.seed(1) 
@@ -208,21 +208,13 @@ def train(cudaid, args,model):
     model.cuda(cudaid)
 
     accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    #optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
     
     #model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
-    # model = DDP(model)
     
-
-    #model = nn.DataParallel(model, device_ids=cuda_list)
-    # torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
-    # torch.cuda.set_device(cudaid)
+    model = DDP(model)
     
-    #model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
-    #model=torch.nn.parallel.DistributedDataParallel(model, device_ids=cuda_list)
-    #model = torch.nn.DataParallel(model)
-    #model=apex.parallel.DistributedDataParallel(model)
 
     accum_batch_loss=0
     iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
@@ -270,6 +262,9 @@ def train(cudaid, args,model):
             all_batch+=1
 
             loss = loss/accumulation_steps
+            if cudaid==0:
+                print('loss: ',loss)
+
             loss.backward()
             # with amp.scale_loss(loss, optimizer) as scaled_loss:
             #     scaled_loss.backward()
@@ -315,6 +310,7 @@ if __name__ == '__main__':
     #main()
     args = parse_args()
     model=Plain_bert(args)
+
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
     
     # for name, param in model.named_parameters():
@@ -323,12 +319,10 @@ if __name__ == '__main__':
 
     # roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
     # #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
-
     # for name, param in roberta.named_parameters():
     #     print(name,param.shape,param.requires_grad,param)
     #     break
     # assert 1==0
-
 
     # model_dict = model.state_dict()
     # pretrained_dict={}
@@ -340,14 +334,12 @@ if __name__ == '__main__':
     # model_dict.update(pretrained_dict)
     # model.load_state_dict(model_dict)
 
-    # args.world_size = args.size * 1
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_PORT'] = '8888'
-    # mp.spawn(train, nprocs=args.size, args=(args,model))
+    args.world_size = args.size * 1
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '8888'
+    mp.spawn(train, nprocs=args.size, args=(args,model))
 
-
-    #model.cuda(cudaid)
-    train(0,args,model)
+    #train(0,args,model)
     
 
             
