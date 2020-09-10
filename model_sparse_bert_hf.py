@@ -91,8 +91,8 @@ class Plain_bert(nn.Module):#
         # print('???',his_padding_mask.shape)
         # his_padding_mask=his_padding_mask.unsqueeze(1)
 
-        self.atten_mask=self.atten_mask.cuda()
-        his_padding_mask=his_padding_mask*self.atten_mask
+        # self.atten_mask=self.atten_mask.cuda()
+        # his_padding_mask=his_padding_mask*self.atten_mask
 
         # print('???',his_padding_mask.dim())
 

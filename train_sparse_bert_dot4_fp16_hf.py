@@ -190,11 +190,11 @@ def test(model,args):
 
 def train(cudaid, args,model):
 
-    dist.init_process_group(
-        backend='nccl',
-        init_method='env://',
-        world_size=args.size,
-        rank=cudaid)
+    # dist.init_process_group(
+    #     backend='nccl',
+    #     init_method='env://',
+    #     world_size=args.size,
+    #     rank=cudaid)
 
     random.seed(1)
     np.random.seed(1) 
@@ -208,39 +208,29 @@ def train(cudaid, args,model):
     model.cuda(cudaid)
 
     accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
-    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    #optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
     
-    #model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
+    model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
     
-    model = DDP(model)
+    #model = DDP(model)
     
-
     accum_batch_loss=0
     iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
     train_file=os.path.join(args.data_dir, args.data_file)  
-    #for epoch in range(0,100):
     batch_t=0
     iteration=0
     print('train...',args.field)
-    #w=open(os.path.join(args.data_dir,args.log_file),'w')
     if cudaid==0:
         writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
     epoch=0
     model.train()
-    # batch_t=52880-1
-    # iteration=3305-1
     batch_t=0
     iteration=0
     step=0
     best_score=-1
-    #w=open(os.path.join(args.data_dir,args.log_file),'w')
-
-    # model.eval()
-    # auc=test(model,args)
 
     for epoch in range(0,10):
-    #while True:
         all_loss=0
         all_batch=0
         data_batch=iterator.load_data_from_file(train_file,cudaid,args.size)
@@ -265,12 +255,13 @@ def train(cudaid, args,model):
             if cudaid==0:
                 print('loss: ',loss)
 
-            loss.backward()
-            # with amp.scale_loss(loss, optimizer) as scaled_loss:
-            #     scaled_loss.backward()
+            
+            #loss.backward()
+
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
 
             if (batch_t)%accumulation_steps==0:
-
                 iteration+=1
                 adjust_learning_rate(optimizer,iteration)
                 optimizer.step()
@@ -296,9 +287,7 @@ def train(cudaid, args,model):
                     model.train()
         
         if cudaid==0:
-            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
-    #w.close()
-            
+            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))            
 
 if __name__ == '__main__':
 
@@ -335,11 +324,11 @@ if __name__ == '__main__':
     # model.load_state_dict(model_dict)
 
     args.world_size = args.size * 1
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '8888'
-    mp.spawn(train, nprocs=args.size, args=(args,model))
+    # os.environ['MASTER_ADDR'] = 'localhost'
+    # os.environ['MASTER_PORT'] = '8888'
+    # mp.spawn(train, nprocs=args.size, args=(args,model))
 
-    #train(0,args,model)
+    train(0,args,model)
     
 
             
