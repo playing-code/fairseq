@@ -430,26 +430,29 @@ class NewsIterator(object):
                     h=tokens[1].split(",")
                     temp=[]
                     index_t=1
-                    for item in h[:-10]:
-                        w_temp+=self.his_dict[item]
-                    for item in h[-10:]:
-                        w_temp+=self.abs_dict[item]
+                    if h[0]!='':
+                        for item in h[:-10]:
+                            w_temp+=self.his_dict[item]
+                        for item in h[-10:]:
+                            w_temp+=self.abs_dict[item]
 
-                    if len(h)<self.his_len:
-                        if len(h)>10:
-                            temp=[1]*((self.his_len - len(h))*self.set_len-1)+[2]
+                        if len(h)<self.his_len:
+                            if len(h)>10:
+                                temp=[1]*((self.his_len - len(h))*self.set_len-1)+[2]
+                            else:
+                                temp=[1]*((self.his_len - 10)*self.set_len+ (10-len(h))*(self.set_len+64)-1)+[2]
+                            w_temp=[0]+temp+w_temp
+
                         else:
-                            temp=[1]*((self.his_len - 10)*self.set_len+ (10-len(h))*(self.set_len+64)-1)+[2]
-                        w_temp=[0]+temp+w_temp
-
+                            w_temp=[0]+w_temp
+                            if len(h)>10:
+                                assert w_temp[:self.set_len+1][-1]==2
+                                w_temp[1:self.set_len+1]=[2]+w_temp[1:self.set_len+1][:-2]+[2]
+                            else:
+                                assert w_temp[:self.set_len+64+1][-1]==2
+                                w_temp[1:self.set_len+64+1]=[2]+w_temp[1:self.set_len+64+1][:-2]+[2]
                     else:
-                        w_temp=[0]+w_temp
-                        if len(h)>10:
-                            assert w_temp[:self.set_len+1][-1]==2
-                            w_temp[1:self.set_len+1]=[2]+w_temp[1:self.set_len+1][:-2]+[2]
-                        else:
-                            assert w_temp[:self.set_len+64+1][-1]==2
-                            w_temp[1:self.set_len+64+1]=[2]+w_temp[1:self.set_len+64+1][:-2]+[2]
+                        w_temp=[0]+[1]*2560
                     w_temp=w_temp[:-1]
                     click_news_index.append(w_temp)
                 else:

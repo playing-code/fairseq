@@ -273,11 +273,8 @@ def train(cudaid, args,model):
             all_loss+=float(loss)
             all_batch+=1
 
-            if cudaid==1:
-                handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
-                meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                #print(int(meminfo.used)/1024/1024)
-                print('loss: ',loss,int(meminfo.used)/1024/1024)
+            # if cudaid==1:
+                
                 # torch.set_printoptions(profile="full")
                 # w=open('input.txt','w')
                 # w.write(str(his_id.cpu()))
@@ -297,6 +294,10 @@ def train(cudaid, args,model):
                 optimizer.step()
                 optimizer.zero_grad()
                 if cudaid==0:
+                    # handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
+                    # meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    # #print(int(meminfo.used)/1024/1024)
+                    # print('loss: ',loss,int(meminfo.used)/1024/1024)
                     print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
