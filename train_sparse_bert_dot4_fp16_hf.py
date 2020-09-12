@@ -40,6 +40,7 @@ import apex
 from apex import amp
 import torch.multiprocessing as mp
 import torch.distributed as dist
+import pynvml
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
@@ -90,6 +91,13 @@ def parse_args():
                     type=str,
                     help="local_rank for distributed training on gpus")
     parser.add_argument("--field",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--history_file",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
+
+    parser.add_argument("--abs_file",
                     type=str,
                     help="local_rank for distributed training on gpus")
 
@@ -151,7 +159,12 @@ def test(model,args):
     labels = []
     imp_indexes = []
     feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=1, npratio=-1,feature_file=feature_file,field=args.field,fp16=True)
+    history_file=os.path.join(args.data_dir,args.history_file)
+    if 'last' in args.field:
+        abs_file=os.path.join(args.data_dir,args.abs_file)
+    else:
+        abs_file=''
+    iterator=NewsIterator(batch_size=1, npratio=-1,feature_file=feature_file,history_file=history_file,abs_file=abs_file,field=args.field,fp16=True)
     print('test...')
     cudaid=0
     #model = nn.DataParallel(model, device_ids=list(range(args.size)))
@@ -189,12 +202,12 @@ def test(model,args):
     return res['group_auc']
 
 def train(cudaid, args,model):
-
-    # dist.init_process_group(
-    #     backend='nccl',
-    #     init_method='env://',
-    #     world_size=args.size,
-    #     rank=cudaid)
+    pynvml.nvmlInit()
+    dist.init_process_group(
+        backend='nccl',
+        init_method='env://',
+        world_size=args.size,
+        rank=cudaid)
 
     random.seed(1)
     np.random.seed(1) 
@@ -208,15 +221,20 @@ def train(cudaid, args,model):
     model.cuda(cudaid)
 
     accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    #optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
     
-    model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
+    model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
     
-    #model = DDP(model)
+    model = DDP(model)
     
     accum_batch_loss=0
-    iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
+    history_file=os.path.join(args.data_dir,args.history_file)
+    if 'last' in args.field:
+        abs_file=os.path.join(args.data_dir,args.abs_file)
+    else:
+        abs_file=''
+    iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),history_file=history_file,abs_file=abs_file,field=args.field)
     train_file=os.path.join(args.data_dir, args.data_file)  
     batch_t=0
     iteration=0
@@ -238,6 +256,10 @@ def train(cudaid, args,model):
         for  imp_index , user_index, his_id, candidate_id , label in data_batch:
             batch_t+=1
             assert candidate_id.shape[1]==2
+
+            # if cudaid==1:
+            #     torch.set_printoptions(profile="full")
+            #     print(his_id)
             his_id=his_id.cuda(cudaid)
             candidate_id= candidate_id.cuda(cudaid)
             label = label.cuda(cudaid)
@@ -251,17 +273,25 @@ def train(cudaid, args,model):
             all_loss+=float(loss)
             all_batch+=1
 
-            loss = loss/accumulation_steps
-            if cudaid==0:
-                print('loss: ',loss)
+            if cudaid==1:
+                handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
+                meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                #print(int(meminfo.used)/1024/1024)
+                print('loss: ',loss,int(meminfo.used)/1024/1024)
+                # torch.set_printoptions(profile="full")
+                # w=open('input.txt','w')
+                # w.write(str(his_id.cpu()))
+                # w.close()
+                # assert 1==0
 
+            loss = loss/accumulation_steps
             
             #loss.backward()
-
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
 
             if (batch_t)%accumulation_steps==0:
+
                 iteration+=1
                 adjust_learning_rate(optimizer,iteration)
                 optimizer.step()
@@ -324,11 +354,11 @@ if __name__ == '__main__':
     # model.load_state_dict(model_dict)
 
     args.world_size = args.size * 1
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_PORT'] = '8888'
-    # mp.spawn(train, nprocs=args.size, args=(args,model))
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '8888'
+    mp.spawn(train, nprocs=args.size, args=(args,model))
 
-    train(0,args,model)
+    # train(0,args,model)
     
 
             

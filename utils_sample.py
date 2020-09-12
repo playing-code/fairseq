@@ -219,9 +219,25 @@ def read_features_roberta(filename,max_length):
         if len(features)>max_length:
             features=features[:max_length]
         else:
-            features=features+[1]*(max_length - len(features))
+            features=features+[1]*(max_length - len(features)) 
         news_id[line[0]]=features
     return news_id
+
+def read_features_roberta2(filename,max_length):
+    news_id2={}
+    f=open(filename,'r')
+    for line in f:
+        line=line.strip().split('\t')
+        features=[int(x) for x in line[1:]]
+        #features=[0]+features
+
+        if len(features)>max_length:
+            features2=features[:max_length-1]+[2]
+        else:
+            features=features[:-1]
+            features2=features+[1]*(max_length - len(features)-1)+[2]
+        news_id2[line[0]]=features2
+    return news_id2
 
 
 class NewsIterator(object):
@@ -240,7 +256,7 @@ class NewsIterator(object):
         his_size (int): max clicked news num in user click history.
     """
 
-    def __init__(self, batch_size, npratio, feature_file,field=None, fp16=False,col_spliter=" ", ID_spliter="%",mode='train'):
+    def __init__(self, batch_size, npratio, feature_file,history_file='',abs_file='',field=None, fp16=False,col_spliter=" ", ID_spliter="%",mode='train'):
         """Initialize an iterator. Create necessary placeholders for the model.
         
         Args:
@@ -275,9 +291,55 @@ class NewsIterator(object):
             max_length=120
         elif field=='cat_abs2':
             max_length=128
+        elif 'sparse' in field:
+            max_length=128
 
         self.max_length=max_length
         self.news_dict=read_features_roberta(feature_file,max_length)
+
+        self.his_len=0
+        self.last=-1
+
+        if field=='sparse_60_title':
+            self.his_len=60
+            self.set_len=32
+            self.his_dict=read_features_roberta2(history_file,32)
+        elif field=='sparse_60_cat':
+            self.his_len=60
+            self.set_len=32
+            self.his_dict=read_features_roberta2(history_file,32)
+        elif field=='sparse_20_cat_abs':
+            self.his_len=20
+            self.set_len=96
+            self.his_dict=read_features_roberta2(history_file,96)
+        elif field=='sparse_120_title':
+            self.his_len=120
+            self.set_len=32
+            self.his_dict=read_features_roberta2(history_file,32)
+        elif field=='sparse_120_cat':
+            self.his_len=120
+            self.set_len=32
+            self.his_dict=read_features_roberta2(history_file,32)
+        elif field=='sparse_40_cat_abs':
+            self.his_len=40
+            self.set_len=96
+            self.his_dict=read_features_roberta2(history_file,96)
+        elif field=='sparse_60_cat_abs':
+            self.his_len=60
+            self.set_len=96
+            self.his_dict=read_features_roberta2(history_file,96)
+        elif field=='sparse_60_title_last':
+            self.his_len=60
+            self.set_len=32
+            self.his_dict=read_features_roberta2(history_file,32)
+            self.abs_dict=read_features_roberta2(abs_file,64+self.set_len)
+            self.last=1
+        elif field=='sparse_60_cat_last':
+            self.his_len=60
+            self.set_len=32
+            self.his_dict=read_features_roberta2(history_file,32)
+            self.abs_dict=read_features_roberta2(abs_file,64+self.set_len)
+            self.last=1
 
 
     def parser_one_line(self, line,test=False,length=None):
@@ -323,29 +385,21 @@ class NewsIterator(object):
 
             elif "CandidateNewsPos" in tokens[0]:
                 # word index start by 0
-                w_temp=[int(i) for i in tokens[1].split(",")]
-                candidate_news_index.append(w_temp)
+                if self.his_len!=0:
+                    w_temp=[int(i) for i in self.news_dict[tokens[1]]]
+                    candidate_news_index.append(w_temp)
+                else:
+                    w_temp=[int(i) for i in tokens[1].split(",")]
+                    candidate_news_index.append(w_temp)
                 # count0=w_temp.count(0)
                 # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
                 # c_segement.append([0]*len(w_temp))
             elif "CandidateNewsNeg" in tokens[0]:
-                # word index start by 0
-                # w_temp=[int(i) for i in tokens[1].split(",")]
-                # candidate_news_index.append(w_temp)
-                # count0=w_temp.count(0)
-                # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
-                # c_segement.append([0]*len(w_temp))
                 neg_list=tokens[1].split(",")
                 neg_sample=np.random.choice(len(neg_list),1,replace=False)[0]
                 w_temp=[int(i) for i in self.news_dict[neg_list[neg_sample]]]
                 candidate_news_index.append(w_temp)
-
-
             elif "CandidateNews" in tokens[0]:
-                # word index start by 0
-                # w_temp=[int(i) for i in tokens[1].split(",")]
-                # candidate_news_index.append(w_temp)
-
                 can_list=tokens[1].split(",")
                 candidate_news_index=[self.news_dict[item] for item in can_list]
                 can_len.append(len(candidate_news_index))
@@ -353,14 +407,54 @@ class NewsIterator(object):
                     assert len(candidate_news_index)<=length
                     while len(candidate_news_index)<length:
                         candidate_news_index.append([0]+[1]*(self.max_length-1))
-
                 # count0=w_temp.count(0)
                 # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
                 # c_segement.append([0]*len(w_temp))
-
             elif "ClickedNews" in tokens[0]:
-                w_temp=[int(i) for i in tokens[1].split(",")]
-                click_news_index.append(w_temp)
+                if self.his_len!=0 and self.last==-1:
+                    w_temp=[0]
+                    h=tokens[1].split(",")
+                    if h[0]!='':
+                        for item in h:
+                            w_temp+=self.his_dict[item]
+                        #print('???',w_temp)
+                        assert w_temp[:self.set_len+1][-1]==2
+                        w_temp[1:self.set_len+1]=[2]+w_temp[1:self.set_len+1][:-2]+[2]
+                        w_temp+=[1]*((self.his_len - len(h))*self.set_len)        
+                    else:
+                        w_temp+=[1]*(self.his_len*self.set_len)  
+                    w_temp=w_temp[:-1]    
+                    click_news_index.append(w_temp)
+                elif self.his_len!=0 and self.last!=-1:
+                    w_temp=[]
+                    h=tokens[1].split(",")
+                    temp=[]
+                    index_t=1
+                    for item in h[:-10]:
+                        w_temp+=self.his_dict[item]
+                    for item in h[-10:]:
+                        w_temp+=self.abs_dict[item]
+
+                    if len(h)<self.his_len:
+                        if len(h)>10:
+                            temp=[1]*((self.his_len - len(h))*self.set_len-1)+[2]
+                        else:
+                            temp=[1]*((self.his_len - 10)*self.set_len+ (10-len(h))*(self.set_len+64)-1)+[2]
+                        w_temp=[0]+temp+w_temp
+
+                    else:
+                        w_temp=[0]+w_temp
+                        if len(h)>10:
+                            assert w_temp[:self.set_len+1][-1]==2
+                            w_temp[1:self.set_len+1]=[2]+w_temp[1:self.set_len+1][:-2]+[2]
+                        else:
+                            assert w_temp[:self.set_len+64+1][-1]==2
+                            w_temp[1:self.set_len+64+1]=[2]+w_temp[1:self.set_len+64+1][:-2]+[2]
+                    w_temp=w_temp[:-1]
+                    click_news_index.append(w_temp)
+                else:
+                    w_temp=[int(i) for i in tokens[1].split(",")]
+                    click_news_index.append(w_temp)
                 #count0=w_temp.count(0)
                 # h_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
                 # h_segement.append([0]*len(w_temp))
