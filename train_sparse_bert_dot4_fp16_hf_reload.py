@@ -273,7 +273,7 @@ def train(cudaid, args,model):
     for epoch in range(args.epoch,10):
         all_loss=0
         all_batch=0
-        if epoch==args.epoch:
+        if epoch!=args.epoch:
             data_batch=iterator.load_data_from_file(train_file,cudaid,args.size)
         else:
             data_batch=iterator.load_data_from_file(train_file,cudaid,args.size,start_pos)
