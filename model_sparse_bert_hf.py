@@ -100,7 +100,7 @@ class Plain_bert(nn.Module):#
                 start=50*self.set_len+(item-50)*(self.set_len+64)
                 end=start+(self.set_len+64)
                 self.atten_mask[start:end,start:end]=1
-                #print('????',item*(self.set_len+64),(item+1)*(self.set_len+64),self.atten_mask[item*(self.set_len+64):(item+1)*(self.set_len+64),item*(self.set_len+64):(item+1)*(self.set_len+64)])
+                #print('????',start,end,self.atten_mask[start:end,start:end])
 
         self.field=field
 

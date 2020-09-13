@@ -502,7 +502,7 @@ class NewsIterator(object):
         else:
             return (label, imp_index, user_index, candidate_news_index, click_news_index)
 
-    def load_data_from_file(self, infile,rank=None,size=None):
+    def load_data_from_file(self, infile,rank=None,size=None,start_pos=None):
         """Read and parse data from a file.
         
         Args:
@@ -532,6 +532,9 @@ class NewsIterator(object):
             rd=open(infile, "r").readlines()
             length=int(len(rd)/size)+1
             rd=rd[rank*length:(rank+1)*length]
+        
+        if start_pos!=None:
+            rd=rd[start_pos:]
             
         # with tf.gfile.GFile(infile, "r") as rd:
         line_index=0

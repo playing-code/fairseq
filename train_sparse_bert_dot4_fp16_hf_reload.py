@@ -102,6 +102,26 @@ def parse_args():
                     help="local_rank for distributed training on gpus")
 
 
+    parser.add_argument("--model_file",
+                    type=str,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--best_score",
+                    type=float,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--batch_t",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--iteration",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--epoch",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    
 
     return parser.parse_args()
 
@@ -236,22 +256,27 @@ def train(cudaid, args,model):
         abs_file=''
     iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),history_file=history_file,abs_file=abs_file,field=args.field)
     train_file=os.path.join(args.data_dir, args.data_file)  
-    batch_t=0
-    iteration=0
+    
     print('train...',args.field)
     if cudaid==0:
         writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
-    epoch=0
     model.train()
-    batch_t=0
-    iteration=0
-    step=0
-    best_score=-1
+    
+    #epoch=args.epoch
+    iteration=args.iteration
+    batch_t=args.batch_t
+    step=int(iteration/500)+1
+    best_score=args.best_score
 
-    for epoch in range(0,10):
+    start_pos=args.batch_t*args.gpu_size#如果不是0的话千万记得加一个%
+
+    for epoch in range(args.epoch,10):
         all_loss=0
         all_batch=0
-        data_batch=iterator.load_data_from_file(train_file,cudaid,args.size)
+        if epoch==args.epoch:
+            data_batch=iterator.load_data_from_file(train_file,cudaid,args.size)
+        else:
+            data_batch=iterator.load_data_from_file(train_file,cudaid,args.size,start_pos)
         print('load ok...')
         for  imp_index , user_index, his_id, candidate_id , label in data_batch:
             batch_t+=1
@@ -330,29 +355,31 @@ if __name__ == '__main__':
     #main()
     args = parse_args()
     model=Plain_bert(args)
-
-    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
-    
-    # for name, param in model.named_parameters():
-    #     print(name,param.shape,param.requires_grad,param)
-    #     break
-
-    # roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    # #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='checkpoint_best.pt')
-    # for name, param in roberta.named_parameters():
-    #     print(name,param.shape,param.requires_grad,param)
-    #     break
-    # assert 1==0
-
-    # model_dict = model.state_dict()
-    # pretrained_dict={}
-    # for name,parameters in roberta.named_parameters():
-    #     if  'lm_head' not in name:
-    #         pretrained_dict['encoder.'+name[31:]]=parameters
-
-    # print(pretrained_dict.keys(),len(pretrained_dict.keys()))
-    # model_dict.update(pretrained_dict)
-    # model.load_state_dict(model_dict)
+    model_dict = model.state_dict()
+    model_file=os.path.join(args.save_dir,args.model_file)
+    save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
+    pretrained_dict={}
+    #for name,parameters in roberta.named_parameters():
+    for name in save_model:
+    #   if name[7:] == "score3.0.bias":
+    #       print(save_model[name])
+        #print(name,':',save_model[name].size())
+        #print(name,':',parameters.size())
+        # if ( 'layers' in name ):
+        #   pretrained_dict[name[31:]]=parameters
+        # elif ('embed_positions.weight' in name or 'embed_tokens' in name or 'emb_layer_norm' in name):
+        #   pretrained_dict[name[31:]]=parameters
+        pretrained_dict[name[7:]]=save_model[name]
+        #pretrained_dict[name]=save_model[name]
+        # if 'dense_lm.weight' in name[7:] or 'dense_lm.bias' in name[7:] :
+        #     print(name ,save_model[name])
+        # elif 'lm_head.' in name:
+        #     pretrained_dict[name[14:]]=parameters
+    # print('----------------------------------------------------------')
+    print(pretrained_dict.keys())
+    #assert 1==0
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict)
 
     args.world_size = args.size * 1
     os.environ['MASTER_ADDR'] = 'localhost'
