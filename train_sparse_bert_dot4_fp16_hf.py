@@ -283,7 +283,7 @@ def train(cudaid, args,model):
 
             loss = loss/accumulation_steps
             
-            loss.backward()
+            #loss.backward()
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
 
