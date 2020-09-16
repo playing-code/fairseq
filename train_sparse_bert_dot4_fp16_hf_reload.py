@@ -244,7 +244,7 @@ def train(cudaid, args,model):
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
     optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
     
-    model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
+    #model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
     
     model = DDP(model)
     
@@ -308,9 +308,9 @@ def train(cudaid, args,model):
 
             loss = loss/accumulation_steps
             
-            #loss.backward()
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            loss.backward()
+            # with amp.scale_loss(loss, optimizer) as scaled_loss:
+            #     scaled_loss.backward()
 
             if (batch_t)%accumulation_steps==0:
 

@@ -39,7 +39,10 @@ class Plain_bert(nn.Module):#
         self.init_weights(self.dense)
         field=args.field
 
-        if field=='sparse_60_title':
+        if field=='sparse_16_title':
+            self.his_len=16
+            self.set_len=32
+        elif field=='sparse_60_title':
             self.his_len=60
             self.set_len=32
         elif field=='sparse_60_cat':
@@ -66,19 +69,39 @@ class Plain_bert(nn.Module):#
         elif field=='sparse_60_cat_last':
             self.his_len=60
             self.set_len=32
-        
+        elif field=='sparse_80_title_reverse':
+            self.his_len=80
+            self.set_len=32
+        elif field=='sparse_80_title_non_reverse':
+            self.his_len=80
+            self.set_len=32  
         sm = SparseRobertaForSequenceClassification.from_pretrained('roberta-base', return_dict=True,output_hidden_states=True)
-        if 'last' in field:
+        
+        if 'reverse' in field:
+            sm.make_long_and_sparse(self.his_len*self.set_len, "variable", 16, False,[32]*5,[0])
+            self.atten_mask=torch.zeros((self.his_len*self.set_len,self.his_len*self.set_len))
+        elif 'last' in field:
             sm.make_long_and_sparse(self.his_len*self.set_len+10*64, "longformer", 16, True,self.set_len,list(range(0,int(self.set_len/16)*self.his_len,int(self.set_len/16))))
             self.atten_mask=torch.zeros((self.his_len*self.set_len+10*64,self.his_len*self.set_len+10*64))
         else:
             sm.make_long_and_sparse(self.his_len*self.set_len, "longformer", 16, True,self.set_len,list(range(0,int(self.set_len/16)*self.his_len,int(self.set_len/16))))
             self.atten_mask=torch.zeros((self.his_len*self.set_len,self.his_len*self.set_len))
+        
         self.sparse_roberta = sm.roberta
         
-        self.atten_mask[:,1]=1
+        
         self.atten_mask[0,:]=1
-        if 'last' not in field:
+        if 'non_reverse' in field:
+            self.atten_mask[:,0]=1
+            self.atten_mask[0:512,0:512]=1
+            self.atten_mask[512:1024,512:1024]=1
+            self.atten_mask[1024:1536,1024:1536]=1
+            self.atten_mask[1536:2048,1536:2048]=1
+            self.atten_mask[2048:2560,2048:2560]=1
+        elif 'reverse' in field:
+            self.atten_mask=None
+        elif 'last' not in field:
+            self.atten_mask[:,1]=1
             for item in range(0,int(self.set_len/16)*self.his_len,int(self.set_len/16)):
                 start=item*16
                 # self.atten_mask[start,:]=1#global
@@ -86,6 +109,7 @@ class Plain_bert(nn.Module):#
             for item in range(self.his_len):
                 self.atten_mask[item*self.set_len:(item+1)*self.set_len,item*self.set_len:(item+1)*self.set_len]=1
         else:
+            self.atten_mask[:,1]=1
             for item in range(0,int(self.set_len/16)*(self.his_len-10),int(self.set_len/16)):
                 start=item*16
                 self.atten_mask[:,start]=1
@@ -135,6 +159,7 @@ class Plain_bert(nn.Module):#
         batch_size,_,his_length=his_id.shape
 
         if 'last' not in self.field:
+            #print('???',his_length)
             assert his_length==self.his_len*self.set_len
         else:
             #print('???',his_length)
@@ -148,13 +173,12 @@ class Plain_bert(nn.Module):#
         his_padding_mask = 1-his_id.eq(1).type_as(his_id)#
 
         #print('???',his_padding_mask.shape,self.atten_mask.shape)
-        his_padding_mask=his_padding_mask.unsqueeze(1)
-
-        attn_mask=self.atten_mask.unsqueeze(0).repeat(batch_size,1,1)
-        attn_mask=attn_mask.cuda()
-
-        #print('???',his_padding_mask.shape,attn_mask.shape)
-        his_padding_mask=his_padding_mask*attn_mask
+        if self.atten_mask!=None:
+            #print('....mask....')
+            his_padding_mask=his_padding_mask.unsqueeze(1)
+            attn_mask=self.atten_mask.unsqueeze(0).repeat(batch_size,1,1)
+            attn_mask=attn_mask.cuda()
+            his_padding_mask=his_padding_mask*attn_mask
 
         # print('???',his_padding_mask.dim())
 

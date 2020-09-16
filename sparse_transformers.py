@@ -243,6 +243,20 @@ class SparseRobertaForSequenceClassification(RobertaForSequenceClassification):
                     num_sliding_window_blocks=num_sliding_window_blocks,
                     global_block_indices=global_block_indices,
                     different_layout_per_head = different_layout_per_head)
+        elif sparsity=="variable":
+            self.sparsity_config = tbs.VariableSparsityConfig(
+                    num_heads = self.roberta.config.num_attention_heads,
+                    #seq_len = seq_len,
+                    block = block_size,
+                    # num_sliding_window_blocks=3,
+                    # global_block_indices=[0],
+                    local_window_blocks=num_sliding_window_blocks,
+                    global_block_indices=global_block_indices,
+                    different_layout_per_head = different_layout_per_head,
+                    num_random_blocks=0,
+                    attention='bidirectional',
+                    horizontal_global_attention=True,
+                    )
         else: 
             raise NotImplementedError
 

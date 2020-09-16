@@ -239,6 +239,22 @@ def read_features_roberta2(filename,max_length):
         news_id2[line[0]]=features2
     return news_id2
 
+def read_features_roberta_raw(filename,max_length):
+    news_raw={}
+    f=open(filename,'r')
+    for line in f:
+        line=line.strip().split('\t')
+        features=[int(x) for x in line[1:]]
+        #features=[0]+features
+        news_raw[line[0]]=features
+        # if len(features)>max_length:
+        #     features2=features[:max_length-1]+[2]
+        # else:
+        #     features=features[:-1]
+        #     features2=features+[1]*(max_length - len(features)-1)+[2]
+        #news_id2[line[0]]=features2
+    return news_raw
+
 
 class NewsIterator(object):
     """Train data loader for the NRMS NPA LSTUR model.
@@ -299,8 +315,14 @@ class NewsIterator(object):
 
         self.his_len=0
         self.last=-1
+        self.reverse=-1
+        self.non_reverse=-1
 
-        if field=='sparse_60_title':
+        if field=='sparse_16_title':
+            self.his_len=16
+            self.set_len=32
+            self.his_dict=read_features_roberta2(history_file,32)
+        elif field=='sparse_60_title':
             self.his_len=60
             self.set_len=32
             self.his_dict=read_features_roberta2(history_file,32)
@@ -340,6 +362,16 @@ class NewsIterator(object):
             self.his_dict=read_features_roberta2(history_file,32)
             self.abs_dict=read_features_roberta2(abs_file,64+self.set_len)
             self.last=1
+        elif field=='sparse_80_title_reverse':
+            self.his_len=80
+            self.set_len=32
+            self.reverse=1
+            self.his_dict=read_features_roberta_raw(history_file,32)
+        elif field=='sparse_80_title_non_reverse':
+            self.his_len=80
+            self.set_len=32
+            self.non_reverse=1
+            self.his_dict=read_features_roberta_raw(history_file,32)
 
 
     def parser_one_line(self, line,test=False,length=None):
@@ -411,7 +443,96 @@ class NewsIterator(object):
                 # c_input_mask.append([1]*(len(w_temp)-count0)+[0]*count0)
                 # c_segement.append([0]*len(w_temp))
             elif "ClickedNews" in tokens[0]:
-                if self.his_len!=0 and self.last==-1:
+                if self.reverse==1:
+                    h=tokens[1].split(",")
+                    h=[x for x in h if x!='']
+                    h=h[::-1]
+                    all_his=[]
+                    all_his_t=[]
+                    all_his_len=0
+                    item_i=0
+                    count=0
+                    while item_i<len(h):
+                        item=h[item_i]
+                        all_his_len+=len(self.his_dict[item])
+                        if all_his_len<=512:
+                            all_his_t.append(self.his_dict[item])
+                            item_i+=1
+                        else:
+                            temp_x=self.his_dict[item][:(512- all_his_len)]
+                            if len(temp_x)!=0:
+                                temp_x=temp_x[:-1]+[2]
+                            all_his_t.append(temp_x)
+                            all_his.append(all_his_t)
+                            all_his_len=0
+                            all_his_t=[]
+                            count+=1
+                            if count==5:
+                                break
+                    assert all_his_len<=512
+                    if all_his_len!=0:
+                        all_his.append(all_his_t)
+                    w_temp=[]
+                    for item in range(len(all_his)):
+                        if item==0:
+                            his_t=[0]
+                        else:
+                            his_t=[2]
+                        for item_t in all_his[item]:
+                            his_t+=item_t
+                        his_t=his_t[:-1]
+                        assert len(his_t)<=512
+                        his_t=his_t+[1]*(512-len(his_t))
+                        w_temp+=his_t
+                    assert len(w_temp)%512==0 and len(w_temp)<=2560
+                    w_temp=w_temp+[1]*(2560-len(w_temp))
+                    click_news_index.append(w_temp)
+                elif self.non_reverse==1:
+                    h=tokens[1].split(",")
+                    h=[x for x in h if x!='']
+                    h=h[::-1]
+                    all_his=[]
+                    all_his_t=[]
+                    all_his_len=0
+                    item_i=0
+                    count=0
+                    while item_i<len(h):
+                        item=h[item_i]
+                        all_his_len+=len(self.his_dict[item])
+                        if all_his_len<=512:
+                            all_his_t.append(self.his_dict[item])
+                            item_i+=1
+                        else:
+                            temp_x=self.his_dict[item][:(512- all_his_len)]
+                            if len(temp_x)!=0:
+                                temp_x=temp_x[:-1]+[2]
+                            all_his_t.append(temp_x)
+                            all_his.append(all_his_t)
+                            all_his_len=0
+                            all_his_t=[]
+                            count+=1
+                            if count==5:
+                                break
+                    assert all_his_len<=512
+                    if all_his_len!=0:
+                        all_his.append(all_his_t)
+                    w_temp=[]
+                    for item in range(len(all_his)):
+                        if item==0:
+                            his_t=[0]
+                        else:
+                            his_t=[2]
+                        for item_t in all_his[::-1][item][::-1]:
+                            his_t+=item_t
+                        his_t=his_t[:-1]
+                        assert len(his_t)<=512
+                        his_t=his_t+[1]*(512-len(his_t))
+                        w_temp+=his_t
+                    assert len(w_temp)%512==0 and len(w_temp)<=2560
+                    w_temp=w_temp+[1]*(2560-len(w_temp))
+                    click_news_index.append(w_temp)
+
+                elif self.his_len!=0 and self.last==-1:
                     w_temp=[0]
                     h=tokens[1].split(",")
                     if h[0]!='':
