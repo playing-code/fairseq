@@ -75,10 +75,16 @@ class Plain_bert(nn.Module):#
         elif field=='sparse_80_title_non_reverse':
             self.his_len=80
             self.set_len=32  
+        elif field=='sparse_16_title_reverse':
+            self.his_len=16
+            self.set_len=32
+        elif field=='sparse_16_title_non_reverse':
+            self.his_len=16
+            self.set_len=32  
         sm = SparseRobertaForSequenceClassification.from_pretrained('roberta-base', return_dict=True,output_hidden_states=True)
         
         if 'reverse' in field:
-            sm.make_long_and_sparse(self.his_len*self.set_len, "variable", 16, False,[32]*5,[0])
+            sm.make_long_and_sparse(self.his_len*self.set_len, "variable", 16, False,[32]*int(self.set_len*self.his_len/512),[0])
             self.atten_mask=torch.zeros((self.his_len*self.set_len,self.his_len*self.set_len))
         elif 'last' in field:
             sm.make_long_and_sparse(self.his_len*self.set_len+10*64, "longformer", 16, True,self.set_len,list(range(0,int(self.set_len/16)*self.his_len,int(self.set_len/16))))
@@ -93,11 +99,14 @@ class Plain_bert(nn.Module):#
         self.atten_mask[0,:]=1
         if 'non_reverse' in field:
             self.atten_mask[:,0]=1
-            self.atten_mask[0:512,0:512]=1
-            self.atten_mask[512:1024,512:1024]=1
-            self.atten_mask[1024:1536,1024:1536]=1
-            self.atten_mask[1536:2048,1536:2048]=1
-            self.atten_mask[2048:2560,2048:2560]=1
+            # self.atten_mask[0:512,0:512]=1
+            # self.atten_mask[512:1024,512:1024]=1
+            # self.atten_mask[1024:1536,1024:1536]=1
+            # self.atten_mask[1536:2048,1536:2048]=1
+            # self.atten_mask[2048:2560,2048:2560]=1
+            for item in range(0,self.set_len*self.his_len,512):
+                self.atten_mask[item:item+512,item:item+512]=1
+                
         elif 'reverse' in field:
             self.atten_mask=None
         elif 'last' not in field:

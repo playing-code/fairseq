@@ -366,11 +366,25 @@ class NewsIterator(object):
             self.his_len=80
             self.set_len=32
             self.reverse=1
+            self.max_his_token=self.his_len*self.set_len
             self.his_dict=read_features_roberta_raw(history_file,32)
         elif field=='sparse_80_title_non_reverse':
             self.his_len=80
             self.set_len=32
             self.non_reverse=1
+            self.max_his_token=self.his_len*self.set_len
+            self.his_dict=read_features_roberta_raw(history_file,32)
+        elif field=='sparse_16_title_reverse':
+            self.his_len=16
+            self.set_len=32
+            self.reverse=1
+            self.max_his_token=self.his_len*self.set_len
+            self.his_dict=read_features_roberta_raw(history_file,32)
+        elif field=='sparse_16_title_non_reverse':
+            self.his_len=16
+            self.set_len=32
+            self.non_reverse=1
+            self.max_his_token=self.his_len*self.set_len
             self.his_dict=read_features_roberta_raw(history_file,32)
 
 
@@ -467,7 +481,7 @@ class NewsIterator(object):
                             all_his_len=0
                             all_his_t=[]
                             count+=1
-                            if count==5:
+                            if count==int(self.max_his_token/512):
                                 break
                     assert all_his_len<=512
                     if all_his_len!=0:
@@ -484,8 +498,8 @@ class NewsIterator(object):
                         assert len(his_t)<=512
                         his_t=his_t+[1]*(512-len(his_t))
                         w_temp+=his_t
-                    assert len(w_temp)%512==0 and len(w_temp)<=2560
-                    w_temp=w_temp+[1]*(2560-len(w_temp))
+                    assert len(w_temp)%512==0 and len(w_temp)<=self.max_his_token
+                    w_temp=w_temp+[1]*(self.max_his_token-len(w_temp))
                     click_news_index.append(w_temp)
                 elif self.non_reverse==1:
                     h=tokens[1].split(",")
@@ -511,7 +525,7 @@ class NewsIterator(object):
                             all_his_len=0
                             all_his_t=[]
                             count+=1
-                            if count==5:
+                            if count==int(self.max_his_token/512):
                                 break
                     assert all_his_len<=512
                     if all_his_len!=0:
@@ -528,8 +542,8 @@ class NewsIterator(object):
                         assert len(his_t)<=512
                         his_t=his_t+[1]*(512-len(his_t))
                         w_temp+=his_t
-                    assert len(w_temp)%512==0 and len(w_temp)<=2560
-                    w_temp=w_temp+[1]*(2560-len(w_temp))
+                    assert len(w_temp)%512==0 and len(w_temp)<=self.max_his_token
+                    w_temp=w_temp+[1]*(self.max_his_token-len(w_temp))
                     click_news_index.append(w_temp)
 
                 elif self.his_len!=0 and self.last==-1:
