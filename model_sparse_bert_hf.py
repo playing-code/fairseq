@@ -97,18 +97,24 @@ class Plain_bert(nn.Module):#
         
         
         self.atten_mask[0,:]=1
-        if 'non_reverse' in field:
+        # if 'non_reverse' in field:
+        #     self.atten_mask[:,0]=1
+        #     # self.atten_mask[0:512,0:512]=1
+        #     # self.atten_mask[512:1024,512:1024]=1
+        #     # self.atten_mask[1024:1536,1024:1536]=1
+        #     # self.atten_mask[1536:2048,1536:2048]=1
+        #     # self.atten_mask[2048:2560,2048:2560]=1
+        #     for item in range(0,self.set_len*self.his_len,512):
+        #         self.atten_mask[item:item+512,item:item+512]=1
+
+        # elif 'reverse' in field:
+        #     self.atten_mask=None
+
+        if 'reverse' in field:
             self.atten_mask[:,0]=1
-            # self.atten_mask[0:512,0:512]=1
-            # self.atten_mask[512:1024,512:1024]=1
-            # self.atten_mask[1024:1536,1024:1536]=1
-            # self.atten_mask[1536:2048,1536:2048]=1
-            # self.atten_mask[2048:2560,2048:2560]=1
             for item in range(0,self.set_len*self.his_len,512):
                 self.atten_mask[item:item+512,item:item+512]=1
-                
-        elif 'reverse' in field:
-            self.atten_mask=None
+
         elif 'last' not in field:
             self.atten_mask[:,1]=1
             for item in range(0,int(self.set_len/16)*self.his_len,int(self.set_len/16)):
