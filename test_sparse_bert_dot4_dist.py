@@ -235,7 +235,7 @@ def test(cudaid,args,model):#valid
             handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             #print(int(meminfo.used)/1024/1024)
-            print('memory: ',int(meminfo.used)/1024/1024)
+            print('memory: ',int(meminfo.used)/1024/1024,' cudaid: ',cudaid)
 
             for i in range(len(imp_index)):
                 # w.write('imp_index:'+str(imp_index[i])+' '+' '.join([str(logit[i][j]) for j in range(can_len[i][0])]))
