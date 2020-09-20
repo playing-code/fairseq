@@ -40,6 +40,7 @@ import apex
 from apex import amp
 import torch.multiprocessing as mp
 import torch.distributed as dist
+import pynvml
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
