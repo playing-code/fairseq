@@ -246,6 +246,66 @@ class Plain_bert(nn.Module):#
         )
         #print('loss: ',loss)
         return loss
+    def predict(self,his_id , candidate_id):
+        batch_size,can_num,can_legth=candidate_id.shape
+        batch_size,_,his_length=his_id.shape
+
+        if 'last' not in self.field:
+            #print('???',his_length)
+            assert his_length==self.his_len*self.set_len
+        else:
+            #print('???',his_length)
+            assert his_length==self.his_len*self.set_len+10*64
+
+
+        sample_size=candidate_id.shape[0]
+        his_id=his_id.reshape(-1,his_id.shape[-1])
+        candidate_id=candidate_id.reshape(-1,can_legth)
+
+        his_padding_mask = 1-his_id.eq(1).type_as(his_id)#
+
+        #print('???',his_padding_mask.shape,self.atten_mask.shape)
+        if self.atten_mask!=None:
+            #print('....mask....')
+            his_padding_mask=his_padding_mask.unsqueeze(1)
+            attn_mask=self.atten_mask.unsqueeze(0).repeat(batch_size,1,1)
+            attn_mask=attn_mask.cuda()
+            his_padding_mask=his_padding_mask*attn_mask
+
+        # print('???',his_padding_mask.dim())
+
+        # his_atten_mask[:,self.global_mask:]=0#除local size之外的是不能看见的
+        # his_atten_mask[:,self.global_mask:]=0#block里面的token除第一个之外是不能看见其他的
+        # his_atten_mask[self.global_mask,:]=0#和上一行对称的mask
+        # his_atten_mask[self.local_mask,:]=0#对每一个token mask掉local size中超出本篇文档的部分
+        # his_atten_mask[self.local_mask,:]=0#和上一条对称
+
+        can_padding_mask=1-candidate_id.eq(1).type_as(candidate_id)
+
+        #print('???',his_id.shape,his_padding_mask.shape)
+
+        outputs_his = self.sparse_roberta(input_ids=his_id, attention_mask=his_padding_mask)
+        # print('sparse_roberta: ', self.sparse_roberta.config.use_return_dict)
+        # print('???',outputs_his,len(outputs_his))#,[x.shape for x in outputs_his])
+        his_features=outputs_his.last_hidden_state[:,0,:]#[-1][:,0,:]
+
+        outputs_can = self.roberta(input_ids=candidate_id, attention_mask=can_padding_mask, labels=None)
+        can_features=outputs_can.hidden_states[-1][:,0,:]
+
+        his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
+        can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1]) 
+
+
+        his_features = self.dense(his_features)
+        his_features = self.layer_norm(his_features)
+
+        can_features = self.dense(can_features)
+        can_features = self.layer_norm(can_features)
+
+
+        res=torch.matmul(his_features,can_features.transpose(1,2))
+        res=res.squeeze(1)
+        return res
 
 
 

@@ -549,6 +549,7 @@ class NewsIterator(object):
                 elif self.his_len!=0 and self.last==-1:
                     w_temp=[0]
                     h=tokens[1].split(",")
+                    h=h[-1*self.his_len:]
                     if h[0]!='':
                         for item in h:
                             w_temp+=self.his_dict[item]
@@ -563,6 +564,7 @@ class NewsIterator(object):
                 elif self.his_len!=0 and self.last!=-1:
                     w_temp=[]
                     h=tokens[1].split(",")
+                    h=h[-1*self.his_len:]
                     temp=[]
                     index_t=1
                     if h[0]!='':
@@ -854,6 +856,7 @@ class NewsIterator(object):
         user_indexes = torch.LongTensor(user_indexes) 
         candidate_news_index_batch = torch.LongTensor(candidate_news_indexes) 
         click_news_index_batch = torch.LongTensor(click_news_indexes) 
+
         # c_input_masks=np.asarray(c_input_masks, dtype=np.int32)
         # c_segements=np.asarray(c_segements, dtype=np.int32)
         # h_input_masks=np.asarray(h_input_masks, dtype=np.int32)
