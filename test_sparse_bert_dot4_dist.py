@@ -173,6 +173,7 @@ def test(cudaid,args,model):#valid
     #model=Plain_bert(load_model='roberta.base',output_size=768)
 
     #model.cuda(cudaid)
+    pynvml.nvmlInit()
     dist.init_process_group(
         backend='nccl',
         init_method='env://',
@@ -197,6 +198,7 @@ def test(cudaid,args,model):#valid
     can_length=int(args.can_length.split(' ')[cudaid])
     gpu_size=int(args.gpu_size.split(' ')[cudaid])
     test_file=os.path.join(args.data_dir, args.data_file+str(file_rank))  
+    print('file_rank: ',file_rank,' can_length: ',can_length,' gpu_size: ',gpu_size, ' cudaid: ',cudaid)
     w=open(os.path.join(args.data_dir,args.log_file+str(file_rank)),'w')
     #data_batch=utils.get_batch()
     #cuda_list=range(cuda_num)
@@ -229,6 +231,11 @@ def test(cudaid,args,model):#valid
             # label=np.reshape(np.array(label), -1)
             # imp_index=np.reshape(np.array(imp_index), -1)
             #print('batch_t:',batch_t)
+            handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
+            meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            #print(int(meminfo.used)/1024/1024)
+            print('memory: ',int(meminfo.used)/1024/1024)
+
             for i in range(len(imp_index)):
                 # w.write('imp_index:'+str(imp_index[i])+' '+' '.join([str(logit[i][j]) for j in range(can_len[i][0])]))
                 # w.write('\n')
