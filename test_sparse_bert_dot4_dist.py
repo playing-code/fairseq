@@ -263,7 +263,7 @@ def test(cudaid,args,model):#valid
         # res = cal_metric(group_labels, group_preds, metrics)
     #return res
     w.close()
-    dist.barrier()
+    #dist.barrier()
 
 
         # metrics:
