@@ -51,7 +51,7 @@ torch.cuda.manual_seed(1)
 metrics=['group_auc','mean_mrr','ndcg@5;10']
 lr=1e-4
 T_warm=5000
-all_iteration=33040
+all_iteration=41316
 
 
 def parse_args():
@@ -234,7 +234,7 @@ def train(cudaid, args,model):
         abs_file=os.path.join(args.data_dir,args.abs_file)
     else:
         abs_file=''
-    iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),history_file=history_file,abs_file=abs_file,field=args.field)
+    iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),history_file=history_file,abs_file=abs_file,field=args.field,fp16=True)
     train_file=os.path.join(args.data_dir, args.data_file)  
     batch_t=0
     iteration=0
