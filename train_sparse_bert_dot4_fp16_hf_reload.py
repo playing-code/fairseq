@@ -49,9 +49,12 @@ torch.cuda.manual_seed(1)
 
 #cudaid=0
 metrics=['group_auc','mean_mrr','ndcg@5;10']
+# lr=1e-4
+# T_warm=5000
+# all_iteration=33040
 lr=1e-4
 T_warm=5000
-all_iteration=33040
+all_iteration=41316
 
 
 def parse_args():
@@ -254,7 +257,7 @@ def train(cudaid, args,model):
         abs_file=os.path.join(args.data_dir,args.abs_file)
     else:
         abs_file=''
-    iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),history_file=history_file,abs_file=abs_file,field=args.field)
+    iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),history_file=history_file,abs_file=abs_file,field=args.field,fp16=True)
     train_file=os.path.join(args.data_dir, args.data_file)  
     
     print('train...',args.field)
@@ -268,9 +271,9 @@ def train(cudaid, args,model):
     step=int(iteration/500)+1
     best_score=args.best_score
 
-    start_pos=args.batch_t*args.gpu_size#如果不是0的话千万记得加一个%
+    start_pos=None#args.batch_t*args.gpu_size#如果不是0的话千万记得加一个%
 
-    for epoch in range(args.epoch,10):
+    for epoch in range(args.epoch,12):
         all_loss=0
         all_batch=0
         if epoch!=args.epoch:
