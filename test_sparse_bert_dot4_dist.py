@@ -8,7 +8,7 @@ import torch
 import argparse
 import os
 # from model_plain_bert_hf import  Plain_bert
-# from model_sparse_bert_hf import  Plain_bert
+from model_sparse_bert_hf import  Plain_bert
 # from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -340,8 +340,8 @@ if __name__ == '__main__':
     # flag=sys.argv[1]
     # exact_result(flag)
     
-    exact_result3()
-    assert 1==0
+    # exact_result3()
+    # assert 1==0
 
 
 
