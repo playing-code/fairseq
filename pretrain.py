@@ -322,7 +322,7 @@ def test(model,args,mlm_data,roberta_dict,decode_data,rerank):
 
 def train(cudaid, args,model,roberta_dict,rerank):
 
-    pynvml.nvmlInit()
+    #pynvml.nvmlInit()
     dist.init_process_group(
         backend='nccl',
         init_method='env://',
@@ -363,6 +363,10 @@ def train(cudaid, args,model,roberta_dict,rerank):
     accum_batch_loss=0
     accum_batch_loss_decode=0
     accum_batch_loss_mask=0
+
+    all_batch_loss=0
+    all_batch_loss_decode=0
+    all_batch_loss_mask=0
     #iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
     #train_file=os.path.join(args.data_dir, args.data_file)  
     #for epoch in range(0,100):
@@ -427,10 +431,16 @@ def train(cudaid, args,model,roberta_dict,rerank):
             accum_batch_loss_mask+=float(loss_mask)
             accum_batch_loss_decode+=float(loss_decode)
 
+            all_batch_loss+=float(loss)
+            all_batch_loss_mask+=float(loss_mask)
+            all_batch_loss_decode+=float(loss_decode)
+
+
+
             all_loss+=float(loss)
             all_batch+=1
 
-            # loss = loss/accumulation_steps
+            loss = loss/accumulation_steps
             # loss.backward()
 
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -438,10 +448,10 @@ def train(cudaid, args,model,roberta_dict,rerank):
 
             if (batch_t)%accumulation_steps==0:
 
-                handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
-                meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                #print(int(meminfo.used)/1024/1024)
-                print('memory: ',int(meminfo.used)/1024/1024,' cudaid: ',cudaid)
+                # handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
+                # meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                # #print(int(meminfo.used)/1024/1024)
+                # print('memory: ',int(meminfo.used)/1024/1024,' cudaid: ',cudaid)
 
                 iteration+=1
                 adjust_learning_rate(optimizer,iteration)
@@ -453,6 +463,12 @@ def train(cudaid, args,model,roberta_dict,rerank):
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Loss_mask/train', accum_batch_loss_mask/accumulation_steps, iteration)
                     writer.add_scalar('Loss_decode/train', accum_batch_loss_decode/accumulation_steps, iteration)
+
+                    writer.add_scalar('Loss_all/train', all_batch_loss/batch_t, iteration)
+                    writer.add_scalar('Loss_mask_all/train', all_batch_loss_mask/batch_t, iteration)
+                    writer.add_scalar('Loss_decode_all/train', all_batch_loss_decode/batch_t, iteration)
+
+
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
 
                 accum_batch_loss=0
