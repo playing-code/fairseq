@@ -40,6 +40,7 @@ import apex
 from apex import amp
 import torch.multiprocessing as mp
 import torch.distributed as dist
+import pynvml
 random.seed(1)
 np.random.seed(1) 
 torch.manual_seed(1) 
@@ -436,7 +437,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 scaled_loss.backward()
 
             if (batch_t)%accumulation_steps==0:
-                
+
                 handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
                 meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
                 #print(int(meminfo.used)/1024/1024)
