@@ -8,7 +8,7 @@ import torch
 import argparse
 import os
 # from model_plain_bert_hf import  Plain_bert
-from model_sparse_bert_hf import  Plain_bert
+#from model_sparse_bert_hf import  Plain_bert
 # from fairseq.models.roberta import RobertaModel
 from utils_sample import NewsIterator
 from utils_sample import cal_metric
@@ -35,9 +35,7 @@ import math
 # )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-from apex.parallel import DistributedDataParallel as DDP
-import apex
-from apex import amp
+
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import pynvml
@@ -313,7 +311,7 @@ def exact_result3():
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/hf_'+str(num)+'.txt','r').readlines() 
         #f1=open('../data/res_roberta_dot4_abs_cat_fp16_add2_'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_'+str(num)+'_2.txt','r').readlines()
-        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_sparse_60_title8_'+str(num),'r').readlines()
+        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_sparse_60_title'+str(num),'r').readlines()
         #f1=open('../data/log'+str(num),'r').readlines()
         for line in f1:
             line=line.strip().split(' ')
@@ -340,8 +338,8 @@ if __name__ == '__main__':
     # flag=sys.argv[1]
     # exact_result(flag)
     
-    # exact_result3()
-    # assert 1==0
+    exact_result3()
+    assert 1==0
 
 
 
@@ -371,6 +369,9 @@ if __name__ == '__main__':
     #     from model_plain_bert_hf import Plain_bert
     #     model=Plain_bert(args)
     from model_sparse_bert_hf import  Plain_bert
+    from apex.parallel import DistributedDataParallel as DDP
+    import apex
+    from apex import amp
     model=Plain_bert(args)
 
     iteration=0

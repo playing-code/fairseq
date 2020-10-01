@@ -70,7 +70,7 @@ def load_dict(path):
 
 def load_mask_data(path,mydict):#一个大列表，每个item是一个文档矩阵，矩阵里面每个item是一个node的数值  ，for token_id 和
     #print('???',path)
-    from fairseq.data.indexed_dataset import MMapIndexedDataset
+    #from fairseq.data.indexed_dataset import MMapIndexedDataset
     #print('???', MMapIndexedDataset(path) )
     dataset = data_utils.load_indexed_dataset(path,mydict,'mmap',combine=False,)
     #print(dataset.__getitem__(0),dataset.__getitem__(0).shape,len(dataset))
@@ -84,24 +84,28 @@ def load_mask_data(path,mydict):#一个大列表，每个item是一个文档矩�
 #不知道有没有shuffle的操作
 
     
-def load_decode_data(filename,max_length=20):
-    news_raw={}
-    f=open(filename,'r')
-    for line in f:
-        line=line.strip().split('\t')
-        features=[int(x) for x in line[1:]]
-        #features=[0]+features
-        news_raw[line[0]]=features
-        # if len(features)>max_length:
-        #     features2=features[:max_length-1]+[2]
-        # else:
-        #     features=features[:-1]
-        #     features2=features+[1]*(max_length - len(features)-1)+[2]
-        #news_id2[line[0]]=features2
-    return news_raw
+def load_decode_data(path,mydict):
+
+    dataset = data_utils.load_indexed_dataset(path,mydict,'mmap',combine=False,)
+    dataset = PrependTokenDataset(dataset, mydict.bos())
+    return dataset
+
+def padding(mylist,max_len=512,padding_idx=1):
+
+    if len(mylist)==2:
+        mylist=[0]+[padding_idx]*(max_len-1)
+    elif len(mylist)>max_len:
+        # print('???',len(mylist),max_len)
+        # assert 1==0
+        mylist=mylist[:max_len]
+    else:
+        mylist+=[padding_idx]*(max_len-len(mylist))
+
+    return mylist
 
 
-def get_batch(dataset,mydict,batch_size,decode_dataset=None):
+
+def get_batch(dataset,mydict,batch_size,decode_dataset=None,rerank=None,mode='train',dist=False,cudaid=0,size=1):
    
 
     src_dataset, tgt_dataset = MaskTokensDataset.apply_mask(dataset,mydict,pad_idx=mydict.pad(),mask_idx=mydict.index('<mask>'),seed=1, mask_prob=0.15,leave_unmasked_prob=0.1,random_token_prob=0.1,freq_weighted_replacement=False,mask_whole_words=None,)
@@ -110,18 +114,41 @@ def get_batch(dataset,mydict,batch_size,decode_dataset=None):
     #   print(item)
     #   break
     #print(src_dataset.__getitem__(0),src_dataset.__getitem__(0).shape)
+
+
     src_dataset=PadDataset( src_dataset,pad_idx=mydict.pad(), left_pad=False,)
     #print(src_dataset.__getitem__(0),src_dataset.__getitem__(0).shape)
     tgt_dataset=PadDataset( tgt_dataset,pad_idx=mydict.pad(), left_pad=False,)
-    print('???',tgt_dataset.__getitem__(0))
+    #print('???',tgt_dataset.__getitem__(0))
 
     data_size=len(dataset)
 
     #data_size=len(dataset.sizes)
     print('size: ',data_size,len(src_dataset.sizes))
+    assert len(dataset)==len(decode_dataset)
+    assert len(rerank)==len(dataset)
     #assert 1==0
 
+    valid_size=int(data_size*0.002)
+
+    if mode=='train':
+        data_size=data_size - valid_size
+        rerank=rerank[:data_size]
+    elif mode=='valid':
+        data_size=valid_size
+        rerank=rerank[-data_size:]
+    else:
+        assert 1==0
+
+    if dist:
+        assert size!=1
+        dist_size=int(len(rerank)/size)+1
+        rerank=rerank[cudaid*dist_size:(cudaid+1)*dist_size]
+        print('dist_size: ',dist_size,cudaid)
+        data_size=len(rerank)
+
     index=0
+    length=0
 
     while i < data_size:
         token_list=[]
@@ -129,11 +156,28 @@ def get_batch(dataset,mydict,batch_size,decode_dataset=None):
         decode_label_list=[]
         #for  x in range(32):#感觉这里想拼起来不是那么容易，考虑一下
         index=0
-        while i<data_size and index<batch_size:
-            token_list.append( list(np.array(src_dataset.__getitem__(i))))
-            mask_label_list.append( list(np.array( tgt_dataset.__getitem__(i))))
-            # decode_label_list.append(decode_dataset[i])
-            decode_label_list.append(  list(np.array(src_dataset.__getitem__(i))))
+        max_len_cur1=0
+        max_len_cur2=0
+        length=0
+
+        while i<data_size and length<batch_size*512: #index<batch_size:
+            token_list.append( list(np.array(src_dataset.__getitem__(rerank[i]))))
+            mask_label_list.append( list(np.array( tgt_dataset.__getitem__(rerank[i]))))
+            decode_label_list.append(list(np.array( decode_dataset.__getitem__(rerank[i]))))
+            #decode_label_list.append(  list(np.array(src_dataset.__getitem__(i))))
+
+            if len(src_dataset.__getitem__(rerank[i]))>max_len_cur1:
+                max_len_cur1=len(src_dataset.__getitem__(rerank[i]))
+            if len(decode_dataset.__getitem__(rerank[i]))>max_len_cur2:
+                max_len_cur2=len(decode_dataset.__getitem__(rerank[i]))
+
+            length=max_len_cur1*index
+
+            if max_len_cur1>512:
+                max_len_cur1=512
+            if max_len_cur2>512:
+                max_len_cur2=512
+
             i+=1
             index+=1
             
@@ -142,6 +186,13 @@ def get_batch(dataset,mydict,batch_size,decode_dataset=None):
         # node_token_list=torch.LongTensor([ padding_node(np.array(item),max_node_len,mydict['<pad>'])  for item in node_token_list ] )
         # node_mask_in_id=torch.LongTensor([ padding_node(np.array(item),max_node_len,mydict['<pad>'])  for item in node_mask_in_id ] )
         #print(token_list)
+
+        token_list=[padding(item,max_len=max_len_cur1, padding_idx=1) for item in token_list]
+        mask_label_list=[padding(item,max_len=max_len_cur1, padding_idx=1) for item in mask_label_list]
+        decode_label_list=[padding(item,max_len=max_len_cur2, padding_idx=1) for item in decode_label_list]
+
+
+
         token_list=torch.LongTensor(token_list)
         mask_label_list=torch.LongTensor(mask_label_list)
         decode_label_list=torch.LongTensor(decode_label_list)

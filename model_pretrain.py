@@ -97,7 +97,7 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
     if ignore_index is not None:
         pad_mask = target.eq(ignore_index)
         nll_loss.masked_fill_(pad_mask, 0.)
-        print('target: ',target.shape,' pad_mask: ',pad_mask.shape,' smooth_loss: ',smooth_loss.shape,' nll_loss: ',nll_loss.shape)
+        #print('target: ',target.shape,' pad_mask: ',pad_mask.shape,' smooth_loss: ',smooth_loss.shape,' nll_loss: ',nll_loss.shape)
         smooth_loss.masked_fill_(pad_mask, 0.)
     else:
         nll_loss = nll_loss.squeeze(-1)
@@ -128,7 +128,7 @@ class RobertaLMHead(nn.Module):
     def forward(self, features, masked_tokens=None, **kwargs):
         # Only project the unmasked tokens while training,
         # saves both memory and computation
-        print('???features: ',features.shape,masked_tokens)
+        #print('???features: ',features.shape,masked_tokens)
 
         if masked_tokens is not None:
             features = features[masked_tokens, :]
@@ -196,10 +196,15 @@ class Plain_bert(nn.Module):#
         # batch_size,can_num,can_legth=candidate_id.shape
         # batch_size,_,his_length=his_id.shape
 
+        #print('???shape: ',token_id.shape,mask_label.shape,decode_label.shape)
+
 
         token_features,_ = self.encoder(token_id)#bsz,length,dim
         token_features=token_features[-1].transpose(0,1)#[:,0,:]
-        # loss_mask, sample_size_mask = self.predict_mask(token_features, mask_label)
+        loss_mask, sample_size_mask = self.predict_mask(token_features, mask_label)
+
+
+
 
         h=token_features[:,0:,]
         h=EncoderOut(
@@ -231,10 +236,12 @@ class Plain_bert(nn.Module):#
         # loss=loss_mask
         # sample_size= sample_size_mask
 
-        loss=loss_decode
-        sample_size= sample_size_decode
+        # loss=loss_decode
+        # sample_size= sample_size_decode
 
-        return loss, sample_size #,torch.tensor(sample_size).cuda()
+        #return loss, sample_size #,torch.tensor(sample_size).cuda()
+        return loss_mask,sample_size_mask,loss_decode,sample_size_decode
+
 
 
     def predict_mask(self,h,mask_label):
@@ -244,7 +251,7 @@ class Plain_bert(nn.Module):#
         sample_size = masked_tokens.int().sum().item()
         if sample_size == 0:
             masked_tokens=None
-            return torch.tensor(0).cuda(),0
+            return torch.tensor(0.).cuda(),0
         logits =  self.lm_head(h, masked_tokens)
 
         targets=mask_label
@@ -270,17 +277,24 @@ class Plain_bert(nn.Module):#
         return loss,sample_size
 
     def predict_decode(self,h,decode_label):
-        sample_size = decode_label.int().sum().item()
+
+        masked_tokens = decode_label.ne(self.padding_idx)
+        sample_size = masked_tokens.int().sum().item()
+
+        if sample_size == 0:
+            masked_tokens=None
+            return torch.tensor(0.).cuda(),0
+
         src_token=decode_label[:,:-1]
         tgt_token=decode_label[:,1:]
         #print(src_token.shape,h.shape)
         tgt_token=tgt_token.reshape(-1)
         decoder_output=self.decoder(src_token,encoder_out=h)
-        print('???',decoder_output[0].shape)
+        #print('???',decoder_output[0].shape)
         lprobs= F.log_softmax(decoder_output[0], dim=-1, dtype=torch.float32)# utils.log_softmax(decoder_output, dim=-1, onnx_trace=False)
-        print('???',lprobs.shape)
+        #print('???',lprobs.shape)
         lprobs = lprobs.view(-1, lprobs.size(-1))
-        print('???',lprobs.shape)
+        #print('???',lprobs.shape)
 
         target=tgt_token
 
@@ -322,7 +336,6 @@ class Plain_bert(nn.Module):#
 
 
         res=torch.matmul(his_features,can_features.transpose(1,2))
-
 
         #res=res.reshape(-1)
         res=res.squeeze(1)

@@ -35,9 +35,9 @@ from fairseq.data import (
 )
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-# from apex.parallel import DistributedDataParallel as DDP
-# import apex
-# from apex import amp
+from apex.parallel import DistributedDataParallel as DDP
+import apex
+from apex import amp
 import torch.multiprocessing as mp
 import torch.distributed as dist
 random.seed(1)
@@ -49,8 +49,8 @@ torch.cuda.manual_seed(1)
 #cudaid=0
 metrics=['group_auc','mean_mrr','ndcg@5;10']
 lr=1e-4
-T_warm=5000
-all_iteration=34431
+T_warm=10000
+all_iteration=1000000
 
 
 def parse_args(parser):
@@ -74,11 +74,15 @@ def parse_args(parser):
     parser.add_argument("--test_feature_file",
                     type=str,
                     help="local_rank for distributed training on gpus")
-    parser.add_argument("--size",
+    parser.add_argument("--world_size",
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
     parser.add_argument("--gpu_size",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--valid_size",
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
@@ -184,33 +188,59 @@ def parse_args(parser):
     return parser.parse_args()
 
 def base_architecture(args):
+    #dropout 不确定
+    #decoder_layerdrop 不确定
+    #share_decoder_input_output_embed ok
+    #decoder_embed_dim 不确定
+    #decoder_output_dim 不确定
+    #max_target_positions
+    #no_scale_embedding
+
+    #adaptive_input
+    #quant_noise_pq
+    #quant_noise_pq
+    #quant_noise_pq_block_size
+
+
+    #decoder_learned_pos 不确定
+    #no_token_positional_embeddings 不确定
+    #decoder_layers 不确定
+    #decoder_normalize_before 不确定但感觉应该是True
+
+
+    #tie_adaptive_weights
+    #adaptive_softmax_cutoff
+    #adaptive_softmax_dropout
+    #adaptive_softmax_factor
+    #tie_adaptive_proj
+
 
     setattr(args, "encoder_embed_path", None)
     setattr(args, "encoder_embed_dim", 768)
-    setattr(args, "encoder_ffn_embed_dim", 2048)
-    setattr(args, "encoder_layers", 6)
-    setattr(args, "encoder_attention_heads", 8)
-    setattr(args, "encoder_normalize_before", False)
-    setattr(args, "encoder_learned_pos", False)
+    setattr(args, "encoder_ffn_embed_dim", 3072)
+    setattr(args, "encoder_layers", 12)
+    setattr(args, "encoder_attention_heads", 12)
+    setattr(args, "encoder_normalize_before", True)
+    setattr(args, "encoder_learned_pos", True)
     setattr(args, "decoder_embed_path", None)
     setattr(args, "decoder_embed_dim", args.encoder_embed_dim)
     setattr(
         args, "decoder_ffn_embed_dim", args.encoder_ffn_embed_dim
     )
-    setattr(args, "decoder_layers", 6)
-    setattr(args, "decoder_attention_heads", 8)
-    setattr(args, "decoder_normalize_before", False)
-    setattr(args, "decoder_learned_pos", False)
-    setattr(args, "attention_dropout", 0.0)
+    setattr(args, "decoder_layers", 12)
+    setattr(args, "decoder_attention_heads", 12)
+    setattr(args, "decoder_normalize_before", True)
+    setattr(args, "decoder_learned_pos", True)
+    setattr(args, "attention_dropout", 0.1)
     setattr(args, "activation_dropout", 0.0)
     setattr(args, "activation_fn", "relu")
     setattr(args, "dropout", 0.1)
     setattr(args, "adaptive_softmax_cutoff", None)
     setattr(args, "adaptive_softmax_dropout", 0)
     setattr(
-        args, "share_decoder_input_output_embed", False
+        args, "share_decoder_input_output_embed", True
     )
-    setattr(args, "share_all_embeddings", False)
+    setattr(args, "share_all_embeddings", True)
     setattr(
         args, "no_token_positional_embeddings", False
     )
@@ -223,9 +253,9 @@ def base_architecture(args):
     )
     setattr(args, "decoder_input_dim", args.decoder_embed_dim)
 
-    setattr(args, "no_scale_embedding", False)
-    setattr(args, "layernorm_embedding", False)
-    setattr(args, "tie_adaptive_weights", False)
+    setattr(args, "no_scale_embedding", True)
+    setattr(args, "layernorm_embedding", True)
+    setattr(args, "tie_adaptive_weights", True)#不确定啊
 
     print('???',args.encoder_embed_dim)
 
@@ -240,62 +270,62 @@ def adjust_learning_rate(optimizer,iteration,lr=lr, T_warm=T_warm, all_iteration
         param_group['lr'] = lr
 
 
-def test(model,args):
-    preds = []
-    labels = []
-    imp_indexes = []
-    metrics=['group_auc']
-    test_file=os.path.join(args.data_dir, args.test_data_file)  
-    preds = []
-    labels = []
-    imp_indexes = []
-    feature_file=os.path.join(args.data_dir,args.feature_file)
-    iterator=NewsIterator(batch_size=1, npratio=-1,feature_file=feature_file,field=args.field,fp16=True)
+def test(model,args,mlm_data,roberta_dict,decode_data,rerank):
+    
     print('test...')
     cudaid=0
-    #model = nn.DataParallel(model, device_ids=list(range(args.size)))
+    #model = nn.DataParallel(model, device_ids=list(range(args.world_size)))
     step=0
+    accum_batch_loss=0
+    accum_batch_loss_decode=0
+    accum_batch_loss_mask=0
+    accumulation_steps=0
+
+    batch_t=0
+
     with torch.no_grad():
-        data_batch=iterator.load_test_data_from_file(test_file,None)
-        batch_t=0
-        for  imp_index , user_index, his_id, candidate_id , label,_  in data_batch:
-            batch_t+=len(candidate_id)
-            his_id=his_id.cuda(cudaid)
-            candidate_id= candidate_id.cuda(cudaid)
-            logit=model(his_id,candidate_id,None,mode='validation')
-            # print('???',label_t,label)
+        data_batch=utils.get_batch(mlm_data,roberta_dict,args.valid_size,decode_dataset=decode_data,rerank=rerank,mode='valid')
+        for  token_list, mask_label_list, decode_label_list in data_batch:
+            #batch_t+=1
+            #assert candidate_id.shape[1]==2
+            # his_id=his_id.cuda(cudaid)
+            # candidate_id= candidate_id.cuda(cudaid)
+            # label = label.cuda(cudaid)
+            # loss=model(his_id,candidate_id, label)
+            batch_t+=token_list.shape[0]
+
+            token_list=token_list.cuda(cudaid)
+            mask_label_list=mask_label_list.cuda(cudaid)
+            decode_label_list=decode_label_list.cuda(cudaid)
+
+            loss_mask,sample_size_mask,loss_decode,sample_size_decode=model(token_list,mask_label_list,decode_label_list)
+
+            loss_mask=loss_mask/sample_size_mask/math.log(2)
+            loss_decode=loss_decode/sample_size_decode/math.log(2)
+            loss=loss_mask+loss_decode
+
+            # print('loss: ',loss,' sample_size: ',sample_size)
             # assert 1==0
-            logit=list(np.reshape(np.array(logit.cpu()), -1))
-            #print('???',label)
-            label=list(np.reshape(np.array(label), -1))
-            imp_index=list(np.reshape(np.array(imp_index), -1))
+            
+            accum_batch_loss+=float(loss)
+            accum_batch_loss_mask+=float(loss_mask)
+            accum_batch_loss_decode+=float(loss_decode)
 
-            assert len(imp_index)==1
-            imp_index=imp_index*len(logit)
+            accumulation_steps+=1
 
-            assert len(logit)==len(label)
-            assert len(logit)==len(imp_index)
-            assert np.sum(np.array(label))!=0
+            if accumulation_steps%100==0:
+                print('batch_t: ',batch_t)
 
 
-            labels.extend(label)
-            preds.extend(logit)
-            imp_indexes.extend(imp_index)
-            step+=1
-            if step%100==0:
-                print('all data: ',len(labels))
+    return accum_batch_loss/accumulation_steps, accum_batch_loss_mask/accumulation_steps, accum_batch_loss_decode/accumulation_steps
 
-    group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
-    res = cal_metric(group_labels, group_preds, metrics)
-    return res['group_auc']
+def train(cudaid, args,model,roberta_dict,rerank):
 
-def train(cudaid, args,model,roberta_dict):
-
-    # dist.init_process_group(
-    #     backend='nccl',
-    #     init_method='env://',
-    #     world_size=args.size,
-    #     rank=cudaid)
+    dist.init_process_group(
+        backend='nccl',
+        init_method='env://',
+        world_size=args.world_size,
+        rank=cudaid)
 
     random.seed(1)
     np.random.seed(1) 
@@ -303,31 +333,33 @@ def train(cudaid, args,model,roberta_dict):
     torch.cuda.manual_seed(1)
 
     print('params: '," T_warm: ",T_warm," all_iteration: ",all_iteration," lr: ",lr)
-    #cuda_list=range(args.size)
+    #cuda_list=range(args.world_size)
     print('rank: ',cudaid)
     torch.cuda.set_device(cudaid)
     model.cuda(cudaid)
 
-    accumulation_steps=int(args.batch_size/args.size/args.gpu_size)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
+    accumulation_steps=int(args.batch_size/args.world_size/args.gpu_size)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
 
-    # optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
-    # model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
-    # model = DDP(model)
-    mlm_data=utils.load_mask_data(os.path.join(args.data_dir,'data-bin/train' ),roberta_dict)
-
+    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
+    model = DDP(model)
+    mlm_data=utils.load_mask_data(os.path.join(args.data_dir,'data-bin-body1_3/train' ),roberta_dict)
+    decode_data=utils.load_decode_data(os.path.join(args.data_dir,'data-bin-abs1_3/train'),roberta_dict)
 
 
     #model = nn.DataParallel(model, device_ids=cuda_list)
     # torch.distributed.init_process_group(backend='nccl', init_method='tcp://localhost:23456', rank=0, world_size=1)
     # torch.cuda.set_device(cudaid)
     
-    #model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    #model, optimizer = amp.initialize(model, optimizer, opt_level="O2")
     #model=torch.nn.parallel.DistributedDataParallel(model, device_ids=cuda_list)
     #model = torch.nn.DataParallel(model)
     #model=apex.parallel.DistributedDataParallel(model)
 
     accum_batch_loss=0
+    accum_batch_loss_decode=0
+    accum_batch_loss_mask=0
     #iterator=NewsIterator(batch_size=args.gpu_size, npratio=4,feature_file=os.path.join(args.data_dir,args.feature_file),field=args.field)
     #train_file=os.path.join(args.data_dir, args.data_file)  
     #for epoch in range(0,100):
@@ -345,6 +377,7 @@ def train(cudaid, args,model,roberta_dict):
     iteration=0
     step=0
     best_score=-1
+    step_t=0
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
 
     # model.eval()
@@ -354,8 +387,8 @@ def train(cudaid, args,model,roberta_dict):
     #while True:
         all_loss=0
         all_batch=0
-        #data_batch=iterator.load_data_from_file(train_file,cudaid,args.size)
-        data_batch=utils.get_batch(mlm_data,roberta_dict,args.batch_size,decode_dataset=None)
+        #data_batch=iterator.load_data_from_file(train_file,cudaid,args.world_size)
+        data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,decode_dataset=decode_data,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size)
         for  token_list, mask_label_list, decode_label_list in data_batch:
             batch_t+=1
             #assert candidate_id.shape[1]==2
@@ -368,23 +401,37 @@ def train(cudaid, args,model,roberta_dict):
             mask_label_list=mask_label_list.cuda(cudaid)
             decode_label_list=decode_label_list.cuda(cudaid)
 
-            loss,sample_size=model(token_list,mask_label_list,decode_label_list)
+            loss_mask,sample_size_mask,loss_decode,sample_size_decode=model(token_list,mask_label_list,decode_label_list)
 
+            #print('????decode: ',sample_size_decode)
+            #print('output: ',loss_mask,sample_size_mask,loss_decode,sample_size_decode)
 
-            loss=loss/sample_size/math.log(2)
-            print('loss: ',loss,' sample_size: ',sample_size)
-            assert 1==0
+            if sample_size_mask!=0:
+                loss_mask=loss_mask/sample_size_mask/math.log(2)
+
+            if  sample_size_decode!=0:
+                loss_decode=loss_decode/sample_size_decode/math.log(2)
+
+            loss=loss_mask+loss_decode
+            #loss=loss_decode
+            # print('loss: ',loss,' sample_size: ',sample_size)
+            # assert 1==0
+
+            # if cudaid==0:
+            #     print('shape: ',token_list.shape,' batch_t: ',batch_t,' loss: ',loss,' loss_mask: ',loss_mask,' loss_decode: ',loss_decode)
             
             accum_batch_loss+=float(loss)
+            accum_batch_loss_mask+=float(loss_mask)
+            accum_batch_loss_decode+=float(loss_decode)
 
             all_loss+=float(loss)
             all_batch+=1
 
-            loss = loss/accumulation_steps
-            loss.backward()
+            # loss = loss/accumulation_steps
+            # loss.backward()
 
-            # with amp.scale_loss(loss, optimizer) as scaled_loss:
-            #     scaled_loss.backward()
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
 
             if (batch_t)%accumulation_steps==0:
 
@@ -393,26 +440,36 @@ def train(cudaid, args,model,roberta_dict):
                 optimizer.step()
                 optimizer.zero_grad()
                 if cudaid==0:
-                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
+                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,\
+                    ' accum_batch_loss_mask: ',accum_batch_loss_mask/accumulation_steps, ' accum_batch_loss_decode: ',accum_batch_loss_decode/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
+                    writer.add_scalar('Loss_mask/train', accum_batch_loss_mask/accumulation_steps, iteration)
+                    writer.add_scalar('Loss_decode/train', accum_batch_loss_decode/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
+
                 accum_batch_loss=0
-                if iteration%5000==0 and cudaid==0:
+                accum_batch_loss_mask=0
+                accum_batch_loss_decode=0
+
+                if iteration%2500==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
-                        auc=test(model,args)
-                        print(auc)
-                        writer.add_scalar('auc/valid', auc, step)
+                        accum_batch_loss_t, accum_batch_loss_mask_t, accum_batch_loss_decode_t=test(model,args,mlm_data,roberta_dict,decode_data,rerank)
+                        print('valid loss: ',accum_batch_loss_t, accum_batch_loss_mask_t, accum_batch_loss_decode_t)
+                        writer.add_scalar('Loss/valid', accum_batch_loss_t, step)
+                        writer.add_scalar('Loss_mask/valid', accum_batch_loss_mask_t, step)
+                        writer.add_scalar('Loss_decode/valid', accum_batch_loss_decode_t, step)
                         step+=1
-                        if auc>best_score:
-                            torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_best.pkl'))
-                            best_score=auc
-                            print('best score: ',best_score)
+                        # if auc>best_score:
+                        #     torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_best.pkl'))
+                        #     best_score=auc
+                        #     print('best score: ',best_score)
                     torch.cuda.empty_cache()
                     model.train()
+
         if cudaid==0:
-            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
+            torch.save(model.state_dict(), os.path.join(args.save_dir,'doc_robert'+str(epoch)+'.pkl'))
     #w.close()
             
 
@@ -455,15 +512,23 @@ if __name__ == '__main__':
     # print(pretrained_dict.keys(),len(pretrained_dict.keys()))
     # model_dict.update(pretrained_dict)
     # model.load_state_dict(model_dict)
+    if os.path.exists(os.path.join(args.data_dir,'rerank1_3.npy')): 
+        rerank=np.load(os.path.join(args.data_dir,'rerank1_3.npy'))
+    else:
+        rerank=np.arange(32255176)
+        random.shuffle(rerank)
+        np.save(os.path.join(args.data_dir,'rerank1_3.npy'),rerank)
 
+    print('rerank: ',rerank[:10])
 
-    # args.world_size = args.size * 1
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_PORT'] = '8888'
-    # mp.spawn(train, nprocs=args.size, args=(args,model))
+    args.world_size = args.world_size * 1
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '8888'
+    mp.spawn(train, nprocs=args.world_size, args=(args,model,roberta_dict,rerank))
 
     # model.cuda(cudaid)
-    train(0,args,model,roberta_dict)
+    
+    #train(0,args,model,roberta_dict,rerank)
     
 
             
