@@ -321,11 +321,13 @@ def test(model,args,mlm_data,roberta_dict,decode_data,rerank):
 
 def train(cudaid, args,model,roberta_dict,rerank):
 
+    pynvml.nvmlInit()
     dist.init_process_group(
         backend='nccl',
         init_method='env://',
         world_size=args.world_size,
         rank=cudaid)
+
 
     random.seed(1)
     np.random.seed(1) 
@@ -434,6 +436,11 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 scaled_loss.backward()
 
             if (batch_t)%accumulation_steps==0:
+                
+                handle = pynvml.nvmlDeviceGetHandleByIndex(cudaid)
+                meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                #print(int(meminfo.used)/1024/1024)
+                print('memory: ',int(meminfo.used)/1024/1024,' cudaid: ',cudaid)
 
                 iteration+=1
                 adjust_learning_rate(optimizer,iteration)
