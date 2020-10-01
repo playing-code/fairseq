@@ -7,12 +7,12 @@ import sys
 import torch
 import argparse
 import os
-from model_pretrain import  Plain_bert
+from model_pretrain_mlm import  Plain_bert
 from fairseq.models.roberta import RobertaModel
 # from utils_sample import NewsIterator
 # from utils_sample import cal_metric
 from fairseq import utils as fairseq_utils
-import utils_pretrain as utils
+import utils_pretrain_mlm as utils
 # import dgl
 # import dgl.function as fn
 #from gpu_mem_track import  MemTracker
@@ -260,6 +260,7 @@ def base_architecture(args):
 
     print('???',args.encoder_embed_dim)
 
+
 def adjust_learning_rate(optimizer,iteration,lr=lr, T_warm=T_warm, all_iteration=all_iteration ):#得看一些一共有多少个iteration再确定
     if iteration<=T_warm:
         lr=lr*float(iteration)/T_warm
@@ -271,7 +272,7 @@ def adjust_learning_rate(optimizer,iteration,lr=lr, T_warm=T_warm, all_iteration
         param_group['lr'] = lr
 
 
-def test(model,args,mlm_data,roberta_dict,decode_data,rerank):
+def test(model,args,mlm_data,roberta_dict,rerank):
     
     print('test...')
     cudaid=0
@@ -285,8 +286,8 @@ def test(model,args,mlm_data,roberta_dict,decode_data,rerank):
     batch_t=0
 
     with torch.no_grad():
-        data_batch=utils.get_batch(mlm_data,roberta_dict,args.valid_size,decode_dataset=decode_data,rerank=rerank,mode='valid')
-        for  token_list, mask_label_list, decode_label_list in data_batch:
+        data_batch=utils.get_batch(mlm_data,roberta_dict,args.valid_size,rerank=rerank,mode='valid')
+        for  token_list, mask_label_list in data_batch:
             #batch_t+=1
             #assert candidate_id.shape[1]==2
             # his_id=his_id.cuda(cudaid)
@@ -297,20 +298,16 @@ def test(model,args,mlm_data,roberta_dict,decode_data,rerank):
 
             token_list=token_list.cuda(cudaid)
             mask_label_list=mask_label_list.cuda(cudaid)
-            decode_label_list=decode_label_list.cuda(cudaid)
 
-            loss_mask,sample_size_mask,loss_decode,sample_size_decode=model(token_list,mask_label_list,decode_label_list)
+            loss_mask,sample_size_mask=model(token_list,mask_label_list)
 
             loss_mask=loss_mask/sample_size_mask/math.log(2)
-            loss_decode=loss_decode/sample_size_decode/math.log(2)
-            loss=loss_mask+loss_decode
+            loss=loss_mask
 
             # print('loss: ',loss,' sample_size: ',sample_size)
             # assert 1==0
             
             accum_batch_loss+=float(loss)
-            accum_batch_loss_mask+=float(loss_mask)
-            accum_batch_loss_decode+=float(loss_decode)
 
             accumulation_steps+=1
 
@@ -318,7 +315,7 @@ def test(model,args,mlm_data,roberta_dict,decode_data,rerank):
                 print('batch_t: ',batch_t)
 
 
-    return accum_batch_loss/accumulation_steps, accum_batch_loss_mask/accumulation_steps, accum_batch_loss_decode/accumulation_steps
+    return accum_batch_loss/accumulation_steps
 
 def train(cudaid, args,model,roberta_dict,rerank):
 
@@ -348,7 +345,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
     model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
     model = DDP(model)
     mlm_data=utils.load_mask_data(os.path.join(args.data_dir,'data-bin-body1_3/train' ),roberta_dict)
-    decode_data=utils.load_decode_data(os.path.join(args.data_dir,'data-bin-abs1_3/train'),roberta_dict)
+    #decode_data=utils.load_decode_data(os.path.join(args.data_dir,'data-bin-abs1_3/train'),roberta_dict)
 
 
     #model = nn.DataParallel(model, device_ids=cuda_list)
@@ -395,8 +392,8 @@ def train(cudaid, args,model,roberta_dict,rerank):
         all_loss=0
         all_batch=0
         #data_batch=iterator.load_data_from_file(train_file,cudaid,args.world_size)
-        data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,decode_dataset=decode_data,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size)
-        for  token_list, mask_label_list, decode_label_list in data_batch:
+        data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size)
+        for  token_list, mask_label_list in data_batch:
             batch_t+=1
             #assert candidate_id.shape[1]==2
             # his_id=his_id.cuda(cudaid)
@@ -406,9 +403,8 @@ def train(cudaid, args,model,roberta_dict,rerank):
 
             token_list=token_list.cuda(cudaid)
             mask_label_list=mask_label_list.cuda(cudaid)
-            decode_label_list=decode_label_list.cuda(cudaid)
 
-            loss_mask,sample_size_mask,loss_decode,sample_size_decode=model(token_list,mask_label_list,decode_label_list)
+            loss_mask,sample_size_mask=model(token_list,mask_label_list)
 
             #print('????decode: ',sample_size_decode)
             #print('output: ',loss_mask,sample_size_mask,loss_decode,sample_size_decode)
@@ -416,10 +412,8 @@ def train(cudaid, args,model,roberta_dict,rerank):
             if sample_size_mask!=0:
                 loss_mask=loss_mask/sample_size_mask/math.log(2)
 
-            if  sample_size_decode!=0:
-                loss_decode=loss_decode/sample_size_decode/math.log(2)
-
-            loss=loss_mask+loss_decode
+            
+            loss=loss_mask
             #loss=loss_decode
             # print('loss: ',loss,' sample_size: ',sample_size)
             # assert 1==0
@@ -428,12 +422,10 @@ def train(cudaid, args,model,roberta_dict,rerank):
             #     print('shape: ',token_list.shape,' batch_t: ',batch_t,' loss: ',loss,' loss_mask: ',loss_mask,' loss_decode: ',loss_decode)
             
             accum_batch_loss+=float(loss)
-            accum_batch_loss_mask+=float(loss_mask)
-            accum_batch_loss_decode+=float(loss_decode)
+            
 
             all_batch_loss+=float(loss)
-            all_batch_loss_mask+=float(loss_mask)
-            all_batch_loss_decode+=float(loss_decode)
+            
 
 
 
@@ -459,16 +451,11 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 optimizer.step()
                 optimizer.zero_grad()
                 if cudaid==0:
-                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,\
-                    ' accum_batch_loss_mask: ',accum_batch_loss_mask/accumulation_steps, ' accum_batch_loss_decode: ',accum_batch_loss_decode/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
+                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
-                    writer.add_scalar('Loss_mask/train', accum_batch_loss_mask/accumulation_steps, iteration)
-                    writer.add_scalar('Loss_decode/train', accum_batch_loss_decode/accumulation_steps, iteration)
+                    
 
                     writer.add_scalar('Loss_all/train', all_batch_loss/batch_t, iteration)
-                    writer.add_scalar('Loss_mask_all/train', all_batch_loss_mask/batch_t, iteration)
-                    writer.add_scalar('Loss_decode_all/train', all_batch_loss_decode/batch_t, iteration)
-
 
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
 
@@ -480,11 +467,10 @@ def train(cudaid, args,model,roberta_dict,rerank):
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
-                        accum_batch_loss_t, accum_batch_loss_mask_t, accum_batch_loss_decode_t=test(model,args,mlm_data,roberta_dict,decode_data,rerank)
-                        print('valid loss: ',accum_batch_loss_t, accum_batch_loss_mask_t, accum_batch_loss_decode_t)
+                        accum_batch_loss_t=test(model,args,mlm_data,roberta_dict,rerank)
+                        print('valid loss: ',accum_batch_loss_t)
                         writer.add_scalar('Loss/valid', accum_batch_loss_t, step)
-                        writer.add_scalar('Loss_mask/valid', accum_batch_loss_mask_t, step)
-                        writer.add_scalar('Loss_decode/valid', accum_batch_loss_decode_t, step)
+                        
                         step+=1
                         # if auc>best_score:
                         #     torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_best.pkl'))

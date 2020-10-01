@@ -125,7 +125,7 @@ def get_batch(dataset,mydict,batch_size,decode_dataset=None,rerank=None,mode='tr
 
     #data_size=len(dataset.sizes)
     print('size: ',data_size,len(src_dataset.sizes))
-    assert len(dataset)==len(decode_dataset)
+    #assert len(dataset)==len(decode_dataset)
     assert len(rerank)==len(dataset)
     #assert 1==0
 
@@ -160,82 +160,40 @@ def get_batch(dataset,mydict,batch_size,decode_dataset=None,rerank=None,mode='tr
         max_len_cur2=0
         length=0
 
-        # while i<data_size and length<batch_size*512: #index<batch_size:
-        #     token_list.append( list(np.array(src_dataset.__getitem__(rerank[i]))))
-        #     mask_label_list.append( list(np.array( tgt_dataset.__getitem__(rerank[i]))))
-        #     decode_label_list.append(list(np.array( decode_dataset.__getitem__(rerank[i]))))
-        #     #decode_label_list.append(  list(np.array(src_dataset.__getitem__(i))))
-
-        #     if len(src_dataset.__getitem__(rerank[i]))>max_len_cur1:
-        #         max_len_cur1=len(src_dataset.__getitem__(rerank[i]))
-        #     if len(decode_dataset.__getitem__(rerank[i]))>max_len_cur2:
-        #         max_len_cur2=len(decode_dataset.__getitem__(rerank[i]))
-
-        #     length=max_len_cur1*index
-
-        #     if max_len_cur1>512:
-        #         max_len_cur1=512
-        #     if max_len_cur2>512:
-        #         max_len_cur2=512
-
-        #     i+=1
-        #     index+=1
-
         while i<data_size and length<=batch_size*512: #index<batch_size:
-
             old_max1=max_len_cur1
-            old_max2=max_len_cur2
             if len(src_dataset.__getitem__(rerank[i]))>max_len_cur1:
                 max_len_cur1=len(src_dataset.__getitem__(rerank[i]))
-            if len(decode_dataset.__getitem__(rerank[i]))>max_len_cur2:
-                max_len_cur2=len(decode_dataset.__getitem__(rerank[i]))
             if max_len_cur1>512:
                 max_len_cur1=512
-            if max_len_cur2>512:
-                max_len_cur2=512
-
             index+=1
-
-            if max_len_cur1>max_len_cur2:
-                length=max_len_cur1*index
-            else:
-                length=max_len_cur2*index
-
+            length=max_len_cur1*index
             if length>batch_size*512:
                 max_len_cur1=old_max1
-                max_len_cur2=old_max2
-                #print('???',batch_size,max_len_cur1,max_len_cur2,index,len(token_list))
                 break
-            # if cudaid==1:
-            #     print('...',max_len_cur1,max_len_cur2,index,length)
-
             token_list.append( list(np.array(src_dataset.__getitem__(rerank[i]))))
             mask_label_list.append( list(np.array( tgt_dataset.__getitem__(rerank[i]))))
-            decode_label_list.append(list(np.array( decode_dataset.__getitem__(rerank[i]))))
+            #decode_label_list.append(  list(np.array(src_dataset.__getitem__(i))))
 
             i+=1
-
-
+            
             
         #print(node_token_list[0],list(node_token_list[0]))
         #print([[ padding_node(node_token_list[0],max_node_len,mydict.pad()) ]])
         # node_token_list=torch.LongTensor([ padding_node(np.array(item),max_node_len,mydict['<pad>'])  for item in node_token_list ] )
         # node_mask_in_id=torch.LongTensor([ padding_node(np.array(item),max_node_len,mydict['<pad>'])  for item in node_mask_in_id ] )
         #print(token_list)
-        # if cudaid==1:
-        #     print('???',batch_size,max_len_cur1,max_len_cur2,index,len(token_list),' cudaid: ',cudaid)
+
         token_list=[padding(item,max_len=max_len_cur1, padding_idx=1) for item in token_list]
         mask_label_list=[padding(item,max_len=max_len_cur1, padding_idx=1) for item in mask_label_list]
-        decode_label_list=[padding(item,max_len=max_len_cur2, padding_idx=1) for item in decode_label_list]
 
 
 
         token_list=torch.LongTensor(token_list)
         mask_label_list=torch.LongTensor(mask_label_list)
-        decode_label_list=torch.LongTensor(decode_label_list)
         
         #print(node_token_list[0],node_mask_in_id[0])
-        yield (token_list, mask_label_list,decode_label_list)
+        yield (token_list, mask_label_list)
         #yield (token_list, mask_label_list)
 
 
