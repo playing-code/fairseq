@@ -383,7 +383,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
     # model.eval()
     # auc=test(model,args)
 
-    for epoch in range(0,10):
+    for epoch in range(0,20):
     #while True:
         all_loss=0
         all_batch=0
