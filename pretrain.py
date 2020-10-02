@@ -476,7 +476,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 accum_batch_loss_mask=0
                 accum_batch_loss_decode=0
 
-                if iteration%6000==0 and cudaid==0:
+                if iteration%10000==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
@@ -486,6 +486,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
                         writer.add_scalar('Loss_mask/valid', accum_batch_loss_mask_t, step)
                         writer.add_scalar('Loss_decode/valid', accum_batch_loss_decode_t, step)
                         step+=1
+                        torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_iteration'+str(iteration)+'.pkl'))
                         # if auc>best_score:
                         #     torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_best.pkl'))
                         #     best_score=auc
