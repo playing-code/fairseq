@@ -228,7 +228,7 @@ def base_architecture(args):
     setattr(
         args, "decoder_ffn_embed_dim", args.encoder_ffn_embed_dim
     )
-    setattr(args, "decoder_layers", 12)
+    #setattr(args, "decoder_layers", 12)
     setattr(args, "decoder_attention_heads", 12)
     setattr(args, "decoder_normalize_before", True)
     setattr(args, "decoder_learned_pos", True)
@@ -476,7 +476,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 accum_batch_loss_mask=0
                 accum_batch_loss_decode=0
 
-                if iteration%2500==0 and cudaid==0:
+                if iteration%6000==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
