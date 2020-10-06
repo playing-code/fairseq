@@ -418,10 +418,10 @@ def train(cudaid, args,model,roberta_dict,rerank):
         #start_pos=args.start_pos
         #start_pos=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
         #batch_t_arg=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
-        if arg.batch_one_epoch!=None:
-            batch_t_arg=arg.batch_t%arg.batch_one_epoch
+        if args.batch_one_epoch!=None:
+            batch_t_arg=args.batch_t%args.batch_one_epoch
         else:
-            batch_t_arg=arg.batch_t
+            batch_t_arg=args.batch_t
 
     for epoch in range(epoch_o,20):
     #while True:
