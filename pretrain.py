@@ -448,8 +448,8 @@ def train(cudaid, args,model,roberta_dict,rerank):
             # print('loss: ',loss,' sample_size: ',sample_size)
             # assert 1==0
 
-            if cudaid==0:
-                print('shape: ',token_list.shape,' batch_t: ',batch_t,' loss: ',loss,' loss_mask: ',loss_mask,' loss_decode: ',loss_decode)
+            # if cudaid==0:
+            #     print('shape: ',token_list.shape,' batch_t: ',batch_t,' loss: ',loss,' loss_mask: ',loss_mask,' loss_decode: ',loss_decode)
             
             accum_batch_loss+=float(loss)
             accum_batch_loss_mask+=float(loss_mask)
