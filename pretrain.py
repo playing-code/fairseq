@@ -116,6 +116,8 @@ def parse_args(parser):
     parser.add_argument("--batch_one_epoch",
                     type=int,
                     help="local_rank for distributed training on gpus")
+    parser.add_argument('--use_start_pos', action='store_true',
+                        help='apply layernorm before each encoder block')
 
 #     return parser.parse_args()
 
@@ -417,6 +419,11 @@ def train(cudaid, args,model,roberta_dict,rerank):
         #start_pos=args.start_pos
         #start_pos=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
         #batch_t_arg=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
+        if args.use_start_pos:
+            start_pos=args.gpu_size*batch_t*2%(int((32255176-int(0.002*32255176))/args.world_size)+1)
+            batch_t_arg=args.batch_t
+            batch_t=args.batch_t
+
         if args.batch_one_epoch!=None:
             batch_t_arg=args.batch_t%args.batch_one_epoch
         else:
