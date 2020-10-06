@@ -113,6 +113,10 @@ def parse_args(parser):
                     type=int,
                     default=1,
                     help="local_rank for distributed training on gpus")
+    parser.add_argument("--batch_one_epoch",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
 
 #     return parser.parse_args()
 
@@ -400,6 +404,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
     best_score=-1
     step_t=0
     start_pos=None
+    batch_t_arg=0
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
 
     # model.eval()
@@ -407,11 +412,16 @@ def train(cudaid, args,model,roberta_dict,rerank):
     if args.model_file !=None:
         epoch_o=args.epoch
         iteration=args.iteration
-        batch_t=args.batch_t
+        #batch_t=args.batch_t
         step=int(iteration/10000)+1
         #best_score=args.best_score
         #start_pos=args.start_pos
-        start_pos=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
+        #start_pos=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
+        #batch_t_arg=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
+        if arg.batch_one_epoch!=None:
+            batch_t_arg=arg.batch_t%arg.batch_one_epoch
+        else:
+            batch_t_arg=arg.batch_t
 
     for epoch in range(epoch_o,20):
     #while True:
@@ -421,6 +431,9 @@ def train(cudaid, args,model,roberta_dict,rerank):
         data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,decode_dataset=decode_data,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size,start_pos=start_pos)
         start_pos=None#下次还是从开头开始
         for  token_list, mask_label_list, decode_label_list in data_batch:
+            if epoch==epoch_o and batch_t<batch_t_arg:
+                batch_t+=1
+                continue
             batch_t+=1
             #assert candidate_id.shape[1]==2
             # his_id=his_id.cuda(cudaid)
