@@ -115,7 +115,6 @@ def parse_args(parser):
                     help="local_rank for distributed training on gpus")
     parser.add_argument("--batch_one_epoch",
                     type=int,
-                    default=1,
                     help="local_rank for distributed training on gpus")
 
 #     return parser.parse_args()
@@ -423,6 +422,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
         else:
             batch_t_arg=args.batch_t
 
+    print('???',batch_t_arg,args.batch_t)
     for epoch in range(epoch_o,20):
     #while True:
         all_loss=0
