@@ -101,6 +101,19 @@ def parse_args(parser):
                     type=str,
                     help="local_rank for distributed training on gpus")
 
+    parser.add_argument("--batch_t",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--iteration",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--epoch",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+
 #     return parser.parse_args()
 
 
@@ -377,6 +390,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
     if cudaid==0:
         writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
     epoch=0
+    epoch_o=0
     model.train()
     # batch_t=52880-1
     # iteration=3305-1
@@ -385,17 +399,27 @@ def train(cudaid, args,model,roberta_dict,rerank):
     step=0
     best_score=-1
     step_t=0
+    start_pos=None
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
 
     # model.eval()
     # auc=test(model,args)
+    if args.model_file !=None:
+        epoch_o=args.epoch
+        iteration=args.iteration
+        batch_t=args.batch_t
+        step=int(iteration/10000)+1
+        #best_score=args.best_score
+        #start_pos=args.start_pos
+        start_pos=args.gpu_size*batch_t%(int((32255176-int(0.002*32255176))/args.world_size)+1)
 
-    for epoch in range(0,20):
+    for epoch in range(epoch_o,20):
     #while True:
         all_loss=0
         all_batch=0
         #data_batch=iterator.load_data_from_file(train_file,cudaid,args.world_size)
-        data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,decode_dataset=decode_data,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size)
+        data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,decode_dataset=decode_data,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size,start_pos=start_pos)
+        start_pos=None#下次还是从开头开始
         for  token_list, mask_label_list, decode_label_list in data_batch:
             batch_t+=1
             #assert candidate_id.shape[1]==2
@@ -424,8 +448,8 @@ def train(cudaid, args,model,roberta_dict,rerank):
             # print('loss: ',loss,' sample_size: ',sample_size)
             # assert 1==0
 
-            # if cudaid==0:
-            #     print('shape: ',token_list.shape,' batch_t: ',batch_t,' loss: ',loss,' loss_mask: ',loss_mask,' loss_decode: ',loss_decode)
+            if cudaid==0:
+                print('shape: ',token_list.shape,' batch_t: ',batch_t,' loss: ',loss,' loss_mask: ',loss_mask,' loss_decode: ',loss_decode)
             
             accum_batch_loss+=float(loss)
             accum_batch_loss_mask+=float(loss_mask)
@@ -538,6 +562,18 @@ if __name__ == '__main__':
     # print(pretrained_dict.keys(),len(pretrained_dict.keys()))
     # model_dict.update(pretrained_dict)
     # model.load_state_dict(model_dict)
+
+    if args.model_file !=None:
+        model_dict = model.state_dict()
+        model_file=os.path.join(args.save_dir,args.model_file)
+        save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
+        pretrained_dict={}
+        for name in save_model:      
+            pretrained_dict[name[7:]]=save_model[name]        
+        print(pretrained_dict.keys())
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+
     if os.path.exists(os.path.join(args.data_dir,'rerank1_3.npy')): 
         rerank=np.load(os.path.join(args.data_dir,'rerank1_3.npy'))
     else:
