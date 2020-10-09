@@ -362,7 +362,8 @@ def train(cudaid, args,model,roberta_dict,rerank):
     accumulation_steps=int(args.batch_size/args.world_size/args.gpu_size)
     #optimizer = torch.optim.Adam(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0)
 
-    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    # optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.98),eps=1e-6,weight_decay=0.0,max_grad_norm=1.0)
+    optimizer = apex.optimizers.FusedLAMB(model.parameters(), lr=lr,betas=(0.9,0.999),eps=1e-6,weight_decay=0.01,max_grad_norm=1.0)
     model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
     model = DDP(model)
     mlm_data=utils.load_mask_data(os.path.join(args.data_dir,'data-bin-body1_3/train' ),roberta_dict)
@@ -423,8 +424,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
             start_pos=args.gpu_size*batch_t*2%(int((32255176-int(0.002*32255176))/args.world_size)+1)
             batch_t_arg=args.batch_t
             batch_t=args.batch_t
-
-        if args.batch_one_epoch!=None:
+        elif args.batch_one_epoch!=None:
             batch_t_arg=args.batch_t%args.batch_one_epoch
         else:
             batch_t_arg=args.batch_t
