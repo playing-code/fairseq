@@ -520,7 +520,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 accum_batch_loss_mask=0
                 accum_batch_loss_decode=0
 
-                if iteration%10000==0 and cudaid==0:
+                if iteration%5000==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
