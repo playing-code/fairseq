@@ -535,7 +535,7 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 if iteration%5000==0 and cudaid==0:
                     torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_iteration'+str(iteration)+'.pkl'))
 
-                if iteration%10000==0:
+                if iteration%5000==0:
                     data_batch_valid=utils.get_batch(mlm_data_valid,roberta_dict,args.valid_size,decode_dataset=decode_data_valid,rerank=None,dist=True,cudaid=cudaid,size=args.world_size,start_pos=start_pos)
                     accum_batch_loss_valid=0
                     accum_batch_loss_mask_valid=0
