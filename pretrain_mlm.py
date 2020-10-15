@@ -101,6 +101,31 @@ def parse_args(parser):
                     type=str,
                     help="local_rank for distributed training on gpus")
 
+    parser.add_argument("--batch_t",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--iteration",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--epoch",
+                    type=int,
+                    default=1,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument("--batch_one_epoch",
+                    type=int,
+                    help="local_rank for distributed training on gpus")
+    parser.add_argument('--use_start_pos', action='store_true',
+                        help='apply layernorm before each encoder block')
+    parser.add_argument('--from_epoch', action='store_true',
+                        help='apply layernorm before each encoder block')
+
+    parser.add_argument("--all_batch_loss",
+                    type=float,
+                    help="local_rank for distributed training on gpus")
+
+
 #     return parser.parse_args()
 
 
@@ -383,18 +408,48 @@ def train(cudaid, args,model,roberta_dict,rerank):
     step=0
     best_score=-1
     step_t=0
+
+    start_pos=None
+    batch_t_arg=-1
+    #w=open(os.path.join(args.data_dir,args.log_file),'w')
+
+    # model.eval()
+    # auc=test(model,args)
+    if args.model_file !=None:
+        epoch_o=args.epoch
+        iteration=args.iteration
+        #batch_t=args.batch_t
+        step=int(iteration/10000)+1
+        if args.use_start_pos:
+            start_pos=args.gpu_size*batch_t*2%(int((32255176-int(0.002*32255176))/args.world_size)+1)
+            batch_t_arg=args.batch_t
+            batch_t=args.batch_t
+        elif args.from_epoch:
+            batch_t_arg=args.batch_t
+            batch_t=args.batch_t
+        elif args.batch_one_epoch!=None:
+            batch_t_arg=args.batch_t%args.batch_one_epoch
+        else:
+            batch_t_arg=args.batch_t
+
+        all_batch_loss=args.all_batch_loss * args.batch_t
+
+
+
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
 
     # model.eval()
     # auc=test(model,args)
 
-    for epoch in range(0,20):
+    for epoch in range(epoch_o,20):
     #while True:
-        all_loss=0
-        all_batch=0
         #data_batch=iterator.load_data_from_file(train_file,cudaid,args.world_size)
-        data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size)
+        data_batch=utils.get_batch(mlm_data,roberta_dict,args.gpu_size,rerank=rerank,mode='train',dist=True,cudaid=cudaid,size=args.world_size,start_pos=start_pos)
+        start_pos=None
         for  token_list, mask_label_list in data_batch:
+            if epoch==epoch_o and batch_t<batch_t_arg:
+                batch_t+=1
+                continue
             batch_t+=1
             #assert candidate_id.shape[1]==2
             # his_id=his_id.cuda(cudaid)
@@ -428,11 +483,6 @@ def train(cudaid, args,model,roberta_dict,rerank):
             all_batch_loss+=float(loss)
             
 
-
-
-            all_loss+=float(loss)
-            all_batch+=1
-
             loss = loss/accumulation_steps
 
             # loss.backward()
@@ -452,7 +502,8 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 optimizer.step()
                 optimizer.zero_grad()
                 if cudaid==0:
-                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps,' lr: ', optimizer.param_groups[0]['lr'])
+                    print(' batch_t: ',batch_t, ' iteration: ', iteration, ' epoch: ',epoch,' accum_batch_loss: ',accum_batch_loss/accumulation_steps, ' all_batch_loss: ', all_batch_loss/batch_t , \
+                        ' lr: ', optimizer.param_groups[0]['lr'])
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     
 
@@ -464,14 +515,14 @@ def train(cudaid, args,model,roberta_dict,rerank):
                 accum_batch_loss_mask=0
                 accum_batch_loss_decode=0
 
-                if iteration%2500==0 and cudaid==0:
+                if iteration%5000==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
                         accum_batch_loss_t=test(model,args,mlm_data,roberta_dict,rerank)
                         print('valid loss: ',accum_batch_loss_t)
                         writer.add_scalar('Loss/valid', accum_batch_loss_t, step)
-                        
+                        torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_iteration'+str(iteration)+'.pkl'))
                         step+=1
                         # if auc>best_score:
                         #     torch.save(model.state_dict(), os.path.join(args.save_dir,'pretrain_best.pkl'))
@@ -524,6 +575,19 @@ if __name__ == '__main__':
     # print(pretrained_dict.keys(),len(pretrained_dict.keys()))
     # model_dict.update(pretrained_dict)
     # model.load_state_dict(model_dict)
+
+    if args.model_file !=None:
+        model_dict = model.state_dict()
+        model_file=os.path.join(args.save_dir,args.model_file)
+        save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
+        pretrained_dict={}
+        for name in save_model:      
+            pretrained_dict[name[7:]]=save_model[name]        
+        print(pretrained_dict.keys())
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+
+
     if os.path.exists(os.path.join(args.data_dir,'rerank1_3.npy')): 
         rerank=np.load(os.path.join(args.data_dir,'rerank1_3.npy'))
     else:

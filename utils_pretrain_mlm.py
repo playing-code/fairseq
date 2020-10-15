@@ -105,7 +105,7 @@ def padding(mylist,max_len=512,padding_idx=1):
 
 
 
-def get_batch(dataset,mydict,batch_size,decode_dataset=None,rerank=None,mode='train',dist=False,cudaid=0,size=1):
+def get_batch(dataset,mydict,batch_size,decode_dataset=None,rerank=None,mode='train',dist=False,cudaid=0,size=1,start_pos=None):
    
 
     src_dataset, tgt_dataset = MaskTokensDataset.apply_mask(dataset,mydict,pad_idx=mydict.pad(),mask_idx=mydict.index('<mask>'),seed=1, mask_prob=0.15,leave_unmasked_prob=0.1,random_token_prob=0.1,freq_weighted_replacement=False,mask_whole_words=None,)
@@ -146,6 +146,8 @@ def get_batch(dataset,mydict,batch_size,decode_dataset=None,rerank=None,mode='tr
         rerank=rerank[cudaid*dist_size:(cudaid+1)*dist_size]
         print('dist_size: ',dist_size,cudaid)
         data_size=len(rerank)
+        if start_pos!=None:
+            i=start_pos
 
     index=0
     length=0
