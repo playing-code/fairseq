@@ -31,6 +31,7 @@ import random
 import os
 
 from fairseq.modules.transformer_sentence_encoder import init_bert_params
+from fairseq.modules.quant_noise import quant_noise as apply_quant_noise_
 from fairseq.models.roberta import RobertaModel
 import torch
 import torch.optim as optim
@@ -109,6 +110,26 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
     loss = (1. - epsilon) * nll_loss + eps_i * smooth_loss
     return loss, nll_loss
 
+class RobertaClassificationHead(nn.Module):
+    """Head for sentence-level classification tasks."""
+
+    def __init__(self, input_dim, inner_dim, num_classes, activation_fn, pooler_dropout, q_noise=0, qn_block_size=8):
+        super().__init__()
+        self.dense = nn.Linear(input_dim, inner_dim)
+        self.activation_fn = utils.get_activation_fn(activation_fn)
+        self.dropout = nn.Dropout(p=pooler_dropout)
+        self.out_proj = apply_quant_noise_(
+            nn.Linear(inner_dim, num_classes), q_noise, qn_block_size
+        )
+
+    def forward(self, features, **kwargs):
+        x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
+        x = self.dropout(x)
+        x = self.dense(x)
+        x = self.activation_fn(x)
+        x = self.dropout(x)
+        x = self.out_proj(x)
+        return x
 
 class RobertaLMHead(nn.Module):
     """Head for masked language modeling."""
@@ -124,6 +145,7 @@ class RobertaLMHead(nn.Module):
             weight = nn.Linear(embed_dim, output_dim, bias=False).weight
         self.weight = weight
         self.bias = nn.Parameter(torch.zeros(output_dim))
+        
 
     def forward(self, features, masked_tokens=None, **kwargs):
         # Only project the unmasked tokens while training,
@@ -191,19 +213,30 @@ class Plain_bert(nn.Module):#
 
         self.decoder=TransformerDecoder(args, dictionary, embed_tokens, no_encoder_attn=getattr(args, "no_cross_attention", False))
 
+        self.class_num=args.num_classes
+        self.classification_heads = RobertaClassificationHead(
+            768,
+            768,
+            self.class_num,
+            'tanh',
+            0.0,
+            0.0,
+            8,
+        )
+
         
-    def forward(self, token_id, mask_label, decode_label=None):#
+    def forward(self, token_id, mask_label=None, decode_label=None, label=None):#
         # batch_size,can_num,can_legth=candidate_id.shape
         # batch_size,_,his_length=his_id.shape
 
         #print('???shape: ',token_id.shape,mask_label.shape,decode_label.shape)
+        if label is not None:
+            return self.predict(token_id,label)
 
 
         token_features,_ = self.encoder(token_id)#bsz,length,dim
         token_features=token_features[-1].transpose(0,1)#[:,0,:]
         loss_mask, sample_size_mask = self.predict_mask(token_features, mask_label)
-
-
 
 
         h=token_features[:,0:,]
@@ -310,42 +343,47 @@ class Plain_bert(nn.Module):#
 
 
 
-    def predict(self,his_id , candidate_id):
+    def predict(self,token_id,label):
+        token_features,_ = self.encoder(token_id)#bsz,length,dim
+        token_features=token_features[-1].transpose(0,1)#[:,0,:]
+        sample_size = len(label)
+        h=token_features
+        #h=h[:,0,:]
+        logits =  self.classification_heads(h)
+        targets=label.view(-1)
+        if self.class_num==1:
+            logits = logits.view(-1).float()
+            targets = targets.float()
+            loss = F.mse_loss(
+                logits,
+                targets,
+                reduction='sum',
+            )
+            return loss,sample_size,0
+        else:
+            preds = logits.argmax(dim=1)
+            acc=(preds == targets).sum()
+            loss = F.nll_loss(
+                F.log_softmax(
+                    logits.view(-1, logits.size(-1)),
+                    dim=-1,
+                    dtype=torch.float32,
+                ),
+                targets.view(-1),
+                reduction='sum',
+                #ignore_index=self.padding_idx,
+            )
+        
+            # logits=F.softmax(
+            #         logits.view(-1, logits.size(-1)),
+            #         dim=-1,
+            #         dtype=torch.float32,
+            #     )
+            return loss,sample_size,acc
 
-        batch_size,can_num,can_legth=candidate_id.shape
-        batch_size,_,his_length=his_id.shape
-        sample_size=candidate_id.shape[0]
-        his_id=his_id.reshape(-1,his_id.shape[-1])
-        candidate_id=candidate_id.reshape(-1,can_legth)
 
 
-        his_features,_ = self.encoder(his_id)#bsz,length,dim
-        his_features=his_features[-1].transpose(0,1)[:,0,:]
-        his_features=his_features.reshape(batch_size,1,his_features.shape[-1])
-        #his_features=his_features.transpose(1,2).repeat(1,1,can_num).transpose(1,2)
-        can_features,_=self.encoder(candidate_id)
-        can_features=can_features[-1].transpose(0,1)[:,0,:]
-        can_features=can_features.reshape(batch_size,can_num,can_features.shape[-1]) 
-
-
-        his_features = self.dense(his_features)
-        his_features = self.layer_norm(his_features)
-
-        can_features = self.dense(can_features)
-        can_features = self.layer_norm(can_features)
-
-
-        res=torch.matmul(his_features,can_features.transpose(1,2))
-
-        #res=res.reshape(-1)
-        res=res.squeeze(1)
-        #print('res: ',res)
-
-        #res=F.sigmoid(res)
-        #print('res: ',res)
-        #print('res shape: ',res.shape)
-
-        return res
+        
 
 
 
