@@ -18,27 +18,45 @@ from fairseq.tokenizer import tokenize_line
 class Dictionary(object):
     """A mapping from symbols to consecutive integers"""
 
+    # def __init__(
+    #     self,
+    #     *,  # begin keyword-only arguments
+    #     pad="<pad>",
+    #     eos="</s>",
+    #     unk="<unk>",
+    #     bos="<s>",
+    #     extra_special_symbols=None,
+    # ):
+    #     self.unk_word, self.pad_word, self.eos_word = unk, pad, eos
+    #     self.symbols = []
+    #     self.count = []
+    #     self.indices = {}
+    #     self.bos_index = self.add_symbol(bos)
+    #     self.pad_index = self.add_symbol(pad)
+    #     self.eos_index = self.add_symbol(eos)
+    #     self.unk_index = self.add_symbol(unk)
+    #     if extra_special_symbols:
+    #         for s in extra_special_symbols:
+    #             self.add_symbol(s)
+    #     self.nspecial = len(self.symbols)
     def __init__(
         self,
         *,  # begin keyword-only arguments
-        pad="<pad>",
-        eos="</s>",
-        unk="<unk>",
-        bos="<s>",
+        bos="[CLS]",
+        pad="[PAD]",
+        eos="[SEP]",
+        unk="[UNK]",
         extra_special_symbols=None,
     ):
-        self.unk_word, self.pad_word, self.eos_word = unk, pad, eos
+        self.unk_word, self.pad_word, self.bos_word, self.eos_word = unk, pad, bos, eos
         self.symbols = []
         self.count = []
         self.indices = {}
-        self.bos_index = self.add_symbol(bos)
-        self.pad_index = self.add_symbol(pad)
-        self.eos_index = self.add_symbol(eos)
-        self.unk_index = self.add_symbol(unk)
-        if extra_special_symbols:
-            for s in extra_special_symbols:
-                self.add_symbol(s)
-        self.nspecial = len(self.symbols)
+        self.bos_index = self.add_symbol(self.bos_word)
+        self.pad_index = self.add_symbol(self.pad_word)
+        self.eos_index = self.add_symbol(self.eos_word)
+        self.unk_index = self.add_symbol(self.unk_word)
+        self.nspecial = 4
 
     def __eq__(self, other):
         return self.indices == other.indices
