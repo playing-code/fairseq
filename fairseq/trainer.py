@@ -394,6 +394,38 @@ class Trainer(object):
 
         # forward and backward pass
         logging_outputs, sample_size, ooms = [], 0, 0
+
+        accumulate_step=len(samples)
+        sample_size_mask=0
+        sample_size_decode=0
+
+        if hasattr(self.task,'count_sample_size'):
+            #print('count size before')
+            #print(samples)
+            for i,sample in enumerate(samples):
+                if sample is None or len(sample)==0 :
+                    sample=self._dummy_batch
+                masked_tokens = sample['target'].ne(self.criterion.padding_idx)
+                sample_size_mask_t = masked_tokens.int().sum()
+                decode_tokens=sample['decode_target'].ne(self.criterion.padding_idx)
+                sample_size_decode_t=decode_tokens.int().sum()
+                sample_size_mask+=sample_size_mask_t
+                sample_size_decode+=sample_size_decode_t
+
+            data = {}
+            data['sample_size_mask' ] = sample_size_mask
+            data['sample_size_decode' ] = sample_size_decode
+            data = distributed_utils.all_reduce_dict(
+                data,
+                device=self.device,
+                group=self.data_parallel_process_group
+            )
+
+            sample_size_mask=data['sample_size_mask' ]
+            sample_size_decode=data['sample_size_decode' ]
+            #print('???',sample_size_decode)
+
+
         for i, sample in enumerate(samples):
             sample = self._prepare_sample(sample)
             if sample is None:
@@ -403,6 +435,10 @@ class Trainer(object):
                 is_dummy_batch = True
             else:
                 is_dummy_batch = False
+
+            sample['sample_size_mask']=sample_size_mask
+            sample['sample_size_decode']=sample_size_decode
+            sample['accumulate_step']=accumulate_step*self.data_parallel_world_size
 
             def maybe_no_sync():
                 """
@@ -484,6 +520,7 @@ class Trainer(object):
             )
             self._cumulative_training_time = total_train_time / self.data_parallel_world_size
 
+
         overflow = False
         try:
             if self.tpu and self.data_parallel_world_size > 1:
@@ -492,6 +529,7 @@ class Trainer(object):
                 xm.all_reduce('sum', gradients, scale=1.0 / self.data_parallel_world_size)
 
             with torch.autograd.profiler.record_function("multiply-grads"):
+                #print('????sample_size: ',sample_size)
                 # multiply gradients by (# GPUs / sample_size) since DDP
                 # already normalizes by the number of GPUs. Thus we get
                 # (sum_of_gradients / sample_size).
@@ -608,6 +646,16 @@ class Trainer(object):
             else:
                 is_dummy_batch = False
 
+
+            accumulate_step=1
+            sample_size_mask=1
+            sample_size_decode=1
+
+            sample['sample_size_mask']=sample_size_mask
+            sample['sample_size_decode']=sample_size_decode
+            sample['accumulate_step']=accumulate_step/self.data_parallel_world_size
+            
+
             try:
                 _loss, sample_size, logging_output = self.task.valid_step(
                     sample, self.model, self.criterion
@@ -634,14 +682,17 @@ class Trainer(object):
                 else:
                     sample_size *= 0.
 
+        #print('???',logging_output['ntokens'],logging_output['sample_size'],logging_output['sample_size_decode'])
         # gather logging outputs from all replicas
         if self.data_parallel_world_size > 1:
             logging_outputs, (sample_size, ) = self._aggregate_logging_outputs(
                 logging_outputs, sample_size, ignore=is_dummy_batch,
             )
-
+        #print('!!!',logging_output['ntokens'],logging_output['sample_size'],logging_output['sample_size_decode'])
         # log validation stats
         logging_output = self._reduce_and_log_stats(logging_outputs, sample_size)
+
+        #print('...',logging_output['ntokens'],logging_output['sample_size'],logging_output['sample_size_decode'])
 
         return logging_output
 
@@ -947,6 +998,7 @@ class Trainer(object):
                 logging_output = {}
             else:
                 logging_output = agg.get_smoothed_values()
+                #print('???',sample_size)
                 logging_output["sample_size"] = sample_size
                 for key_to_delete in ["ppl", "wps", "wpb", "bsz"]:
                     if key_to_delete in logging_output:
