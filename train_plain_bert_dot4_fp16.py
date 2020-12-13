@@ -235,7 +235,7 @@ def train(cudaid, args,model):
     print('train...',args.field)
     #w=open(os.path.join(args.data_dir,args.log_file),'w')
     if cudaid==0:
-        writer = SummaryWriter(os.path.join(args.data_dir, args.log_file) )
+        writer = SummaryWriter(os.path.join(args.save_dir, args.log_file) )
     epoch=0
     model.train()
     # batch_t=52880-1
@@ -286,7 +286,7 @@ def train(cudaid, args,model):
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%500==0 and cudaid==0:
+                if iteration%5==0 and cudaid==0:
                     torch.cuda.empty_cache()
                     model.eval()
                     if cudaid==0:
@@ -321,16 +321,26 @@ if __name__ == '__main__':
     #     print(name,param.shape,param.requires_grad)
 
     #roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file='model.pt')
-    roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file=args.model_file)
+    # roberta = RobertaModel.from_pretrained(os.path.join(args.data_dir,'roberta.base'), checkpoint_file=args.model_file)
+    # model_dict = model.state_dict()
+    # pretrained_dict={}
+    # for name,parameters in roberta.named_parameters():
+    #     if  'lm_head' not in name:
+    #         pretrained_dict['encoder.'+name[31:]]=parameters
 
-    # for name, param in roberta.named_parameters():
-    #     print(name,param.shape,param.requires_grad)
 
+
+    #finetune my rroduced roberta
     model_dict = model.state_dict()
-    pretrained_dict={}
-    for name,parameters in roberta.named_parameters():
-        if  'lm_head' not in name:
-            pretrained_dict['encoder.'+name[31:]]=parameters
+    save_model=torch.load(args.model_file, map_location=lambda storage, loc: storage)
+    #print(save_model['model'].keys())
+    pretrained_dict= {}
+    #print('???',save_model['model'].keys())
+    for name in save_model['model']:
+        if 'lm_head' not in name and 'encoder' in name and 'decode' not in name:
+            pretrained_dict['encoder'+name[24:]]=save_model['model'][name]
+
+    assert len(model_dict)-4==len(pretrained_dict), (len(model_dict),len(pretrained_dict),model_dict,pretrained_dict)
 
     print(pretrained_dict.keys(),len(pretrained_dict.keys()))
     model_dict.update(pretrained_dict)

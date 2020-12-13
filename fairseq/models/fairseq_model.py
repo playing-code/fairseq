@@ -90,6 +90,29 @@ class BaseFairseqModel(nn.Module):
         """
         self.upgrade_state_dict(state_dict)
         new_state_dict = prune_state_dict(state_dict, args)
+        #print('newnewnewnew: ',new_state_dict.keys())
+        # print('!!!!',new_state_dict['encoder.sentence_encoder.embed_tokens.weight'])
+        # print('55555: ',self.state_dict()['encoder.sentence_encoder.embed_tokens.weight'])
+
+        # print('!!!!',new_state_dict['encoder.sentence_encoder.layers.1.fc2.weight'])
+        # print('55555: ',self.state_dict()['encoder.sentence_encoder.layers.1.fc2.weight'])
+
+        # print('!!!!',new_state_dict['encoder.decoder.embed_tokens.weight'])
+        # print('55555: ',self.state_dict()['encoder.decoder.embed_tokens.weight'])
+
+        # del new_state_dict['encoder.decoder.embed_tokens.weight']
+        # del new_state_dict['encoder.decoder.output_projection.weight']
+        #new_state_dict['encoder.decoder.output_projection.weight']=new_state_dict['encoder.sentence_encoder.embed_tokens.weight']
+
+        #super().load_state_dict(new_state_dict, strict)
+        #super().load_state_dict({'encoder.sentence_encoder.embed_tokens.weight':new_state_dict['encoder.sentence_encoder.embed_tokens.weight']}, strict=False)
+
+        # print('6666: ',self.state_dict()['encoder.sentence_encoder.embed_tokens.weight'])
+        #print('6666: ',self.state_dict()['encoder.sentence_encoder.layers.1.fc2.weight'])
+        # print('6666: ',self.state_dict()['encoder.decoder.embed_tokens.weight'])
+        # assert 1==0
+
+
         return super().load_state_dict(new_state_dict, strict)
 
     def upgrade_state_dict(self, state_dict):

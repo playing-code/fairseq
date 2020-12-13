@@ -23,28 +23,43 @@ from fairseq.modules import (
     LayerNorm,
     TransformerSentenceEncoder,
 )
+# from fairseq.modules import (
+#     AdaptiveSoftmax,
+#     FairseqDropout,
+#     LayerDropModuleList,
+#     LayerNorm,
+#     PositionalEmbedding,
+#     SinusoidalPositionalEmbedding,
+#     TransformerDecoderLayer,
+#     TransformerEncoderLayer,
+# )
+from fairseq.models.transformer import TransformerDecoder
+from fairseq.models.fairseq_encoder import EncoderOut
+
 from fairseq.modules.transformer_sentence_encoder import init_bert_params
 from fairseq.modules.quant_noise import quant_noise as apply_quant_noise_
 
-from .hub_interface import RobertaHubInterface
+import os
+
+#from .hub_interface import RobertaHubInterface
 
 
 logger = logging.getLogger(__name__)
 
 
-@register_model('roberta')
-class RobertaModel(FairseqEncoderModel):
+@register_model('roberta_decode')
+class RobertaDecoderModel(FairseqEncoderModel):
 
-    @classmethod
-    def hub_models(cls):
-        return {
-            'roberta.base': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.base.tar.gz',
-            'roberta.large': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.large.tar.gz',
-            'roberta.large.mnli': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.large.mnli.tar.gz',
-            'roberta.large.wsc': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.large.wsc.tar.gz',
-        }
+    # @classmethod
+    # def hub_models(cls):
+    #     return {
+    #         'roberta.base': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.base.tar.gz',
+    #         'roberta.large': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.large.tar.gz',
+    #         'roberta.large.mnli': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.large.mnli.tar.gz',
+    #         'roberta.large.wsc': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.large.wsc.tar.gz',
+    #     }
 
-    def __init__(self, args, encoder):
+    def __init__(self, args, encoder,decoder):
         super().__init__(encoder)
         self.args = args
 
@@ -52,6 +67,8 @@ class RobertaModel(FairseqEncoderModel):
         self.apply(init_bert_params)
 
         self.classification_heads = nn.ModuleDict()
+        self.decoder=decoder        
+
 
     @staticmethod
     def add_args(parser):
@@ -84,6 +101,9 @@ class RobertaModel(FairseqEncoderModel):
                             help='number of positional embeddings to learn')
         parser.add_argument('--load-checkpoint-heads', action='store_true',
                             help='(re-)register and load heads when loading checkpoints')
+
+        parser.add_argument('--not-load-checkpoint-decoder', action='store_true',
+                            help='do not load the decoder')
         # args for "Reducing Transformer Depth on Demand with Structured Dropout" (Fan et al., 2019)
         parser.add_argument('--encoder-layerdrop', type=float, metavar='D', default=0,
                             help='LayerDrop probability for encoder')
@@ -99,6 +119,56 @@ class RobertaModel(FairseqEncoderModel):
         parser.add_argument('--untie-weights-roberta', action='store_true',
                             help='Untie weights between embeddings and classifiers in RoBERTa')
 
+
+       
+        
+        parser.add_argument('--decoder-embed-path', type=str, metavar='STR',
+                            help='path to pre-trained decoder embedding')
+        parser.add_argument('--decoder-embed-dim', type=int, metavar='N',
+                            help='decoder embedding dimension')
+        parser.add_argument('--decoder-ffn-embed-dim', type=int, metavar='N',
+                            help='decoder embedding dimension for FFN')
+        parser.add_argument('--decoder-layers', type=int, metavar='N',
+                            help='num decoder layers')
+        parser.add_argument('--decoder-attention-heads', type=int, metavar='N',
+                            help='num decoder attention heads')
+        parser.add_argument('--decoder-learned-pos', action='store_true',
+                            help='use learned positional embeddings in the decoder')
+        parser.add_argument('--decoder-normalize-before', action='store_true',
+                            help='apply layernorm before each decoder block')
+        parser.add_argument('--decoder-output-dim', type=int, metavar='N',
+                            help='decoder output dimension (extra linear layer '
+                                 'if different from decoder embed dim')
+        parser.add_argument('--share-decoder-input-output-embed', action='store_true',
+                            help='share decoder input and output embeddings')
+        parser.add_argument('--share-all-embeddings', action='store_true',
+                            help='share encoder, decoder and output embeddings'
+                                 ' (requires shared dictionary and embed dim)')
+        parser.add_argument('--no-token-positional-embeddings', default=False, action='store_true',
+                            help='if set, disables positional embeddings (outside self attention)')
+        parser.add_argument('--adaptive-softmax-cutoff', metavar='EXPR',
+                            help='comma separated list of adaptive softmax cutoff points. '
+                                 'Must be used with adaptive_loss criterion'),
+        parser.add_argument('--adaptive-softmax-dropout', type=float, metavar='D',
+                            help='sets adaptive softmax dropout for the tail projections')
+        parser.add_argument('--layernorm-embedding', action='store_true',
+                            help='add layernorm to embedding')
+        parser.add_argument('--no-scale-embedding', action='store_true',
+                            help='if True, dont scale embeddings')
+        # args for "Cross+Self-Attention for Transformer Models" (Peitz et al., 2019)
+        parser.add_argument('--no-cross-attention', default=False, action='store_true',
+                            help='do not perform cross-attention')
+        parser.add_argument('--cross-self-attention', default=False, action='store_true',
+                            help='perform cross+self-attention')
+        # args for "Reducing Transformer Depth on Demand with Structured Dropout" (Fan et al., 2019)
+        
+        parser.add_argument('--decoder-layerdrop', type=float, metavar='D', default=0,
+                            help='LayerDrop probability for decoder')
+        parser.add_argument('--decoder-layers-to-keep', default=None,
+                            help='which layers to *keep* when pruning as a comma-separated list')
+        # args for Training with Quantization Noise for Extreme Model Compression ({Fan*, Stock*} et al., 2020)
+
+
     @classmethod
     def build_model(cls, args, task):
         """Build a new model instance."""
@@ -108,18 +178,48 @@ class RobertaModel(FairseqEncoderModel):
 
         if not hasattr(args, 'max_positions'):
             args.max_positions = args.tokens_per_sample
+            
+        if getattr(args, "max_source_positions", None) is None:
+            args.max_source_positions = 512
+        if getattr(args, "max_target_positions", None) is None:
+            args.max_target_positions = 512
 
         encoder = RobertaEncoder(args, task.source_dictionary)
-        return cls(args, encoder)
+        decoder = TransformerDecoder(args, task.source_dictionary, encoder.sentence_encoder.embed_tokens, no_encoder_attn=getattr(args, "no_cross_attention", False))
 
-    def forward(self, src_tokens, features_only=False, return_all_hiddens=False, classification_head_name=None, **kwargs):
+
+        return cls(args, encoder,decoder)
+
+    def forward(self, src_tokens, prev_tokens=None, features_only=False, return_all_hiddens=False, classification_head_name=None, **kwargs):
         if classification_head_name is not None:
             features_only = True
 
-        x, extra = self.encoder(src_tokens, features_only, return_all_hiddens, **kwargs)
+        # print('???other',self.encoder.sentence_encoder.layers[1].fc2.weight)
+        #print('???encoder_emb',self.encoder.sentence_encoder.embed_tokens.weight)
+        # print('???decoder_emb',self.encoder.decoder.embed_tokens.weight)
+
+        x, extra, x_encoder = self.encoder(src_tokens, features_only, return_all_hiddens, **kwargs)
+
 
         if classification_head_name is not None:
             x = self.classification_heads[classification_head_name](x)
+
+        if prev_tokens is not None:
+            #print('???',x_encoder.shape)
+            h=x_encoder[:,0:1,:]
+            h=h.transpose(0,1)
+            h=EncoderOut(
+                encoder_out=h,  # T x B x C
+                encoder_padding_mask=None,  # B x T
+                encoder_embedding=None,  # B x T x C
+                encoder_states=None,  # List[T x B x C]
+                src_tokens=None,
+                src_lengths=None,
+            )
+            decoder_output=self.decoder(prev_tokens,encoder_out=h)[0]
+
+            return x, decoder_output, extra
+
         return x, extra
 
     def get_normalized_probs(self, net_output, log_probs, sample=None):
@@ -156,28 +256,44 @@ class RobertaModel(FairseqEncoderModel):
     def supported_targets(self):
         return {'self'}
 
-    @classmethod
-    def from_pretrained(cls, model_name_or_path, checkpoint_file='model.pt', data_name_or_path='.', bpe='gpt2', **kwargs):
-        from fairseq import hub_utils
-        x = hub_utils.from_pretrained(
-            model_name_or_path,
-            checkpoint_file,
-            data_name_or_path,
-            archive_map=cls.hub_models(),
-            bpe=bpe,
-            load_checkpoint_heads=True,
-            **kwargs,
-        )
-        return RobertaHubInterface(x['args'], x['task'], x['models'][0])
+    # @classmethod
+    # def from_pretrained(cls, model_name_or_path, checkpoint_file='model.pt', data_name_or_path='.', bpe='gpt2', **kwargs):
+    #     from fairseq import hub_utils
+    #     x = hub_utils.from_pretrained(
+    #         model_name_or_path,
+    #         checkpoint_file,
+    #         data_name_or_path,
+    #         archive_map=cls.hub_models(),
+    #         bpe=bpe,
+    #         load_checkpoint_heads=True,
+    #         **kwargs,
+    #     )
+    #     return RobertaHubInterface(x['args'], x['task'], x['models'][0])
 
     def upgrade_state_dict_named(self, state_dict, name):
         prefix = name + '.' if name != '' else ''
+
+        #print('???other',state_dict['encoder.sentence_encoder.layers.1.fc2.weight'])
+        #print('???encoder_emb',state_dict['encoder.sentence_encoder.embed_tokens.weight'])
+        #print('???decoder_emb',state_dict['encoder.decoder.embed_tokens.weight'])
+
+
+        # if getattr(self.args, 'not_load_checkpoint_decoder', False):
+        #     logger.warning(
+        #                 'decoder not in the checkpoint.'
+        #             )
+        #     for k in list(state_dict.keys()):
+        #         if k.startswith(prefix + 'decoder'):
+        #             new_k = prefix + 'encoder' + k[len(prefix + 'decoder'):]
+        #             state_dict[new_k] = state_dict[k]
+        #             del state_dict[k]
+
         # rename decoder -> encoder before upgrading children modules
-        for k in list(state_dict.keys()):
-            if k.startswith(prefix + 'decoder'):
-                new_k = prefix + 'encoder' + k[len(prefix + 'decoder'):]
-                state_dict[new_k] = state_dict[k]
-                del state_dict[k]
+        # for k in list(state_dict.keys()):
+        #     if k.startswith(prefix + 'decoder'):
+        #         new_k = prefix + 'encoder' + k[len(prefix + 'decoder'):]
+        #         state_dict[new_k] = state_dict[k]
+        #         del state_dict[k]
 
         # upgrade children modules
         super().upgrade_state_dict_named(state_dict, name)
@@ -187,8 +303,21 @@ class RobertaModel(FairseqEncoderModel):
             [] if not hasattr(self, 'classification_heads')
             else self.classification_heads.keys()
         )
+
         keys_to_delete = []
         for k in state_dict.keys():
+
+            # if getattr(self.args, 'not_load_checkpoint_decoder', False):
+            #     if k.startswith(prefix + 'decoder'):
+            #         del state_dict[k]
+            #print('???',self.args.decoder_layers)
+            for layer_i in range(self.args.decoder_layers,12):
+                if str(layer_i) in k and  k.startswith(prefix + 'decoder'):
+                    keys_to_delete.append(k)
+                    break
+
+
+
             if not k.startswith(prefix + 'classification_heads.'):
                 continue
 
@@ -334,9 +463,11 @@ class RobertaEncoder(FairseqEncoder):
                   states have shape `(src_len, batch, vocab)`.
         """
         x, extra = self.extract_features(src_tokens, return_all_hiddens=return_all_hiddens)
-        if not features_only:
+        x_origin=x
+        if not features_only:    
             x = self.output_layer(x, masked_tokens=masked_tokens)
-        return x, extra
+        return x, extra, x_origin
+
 
     def extract_features(self, src_tokens, return_all_hiddens=False, **unused):
         inner_states, _ = self.sentence_encoder(
@@ -354,7 +485,7 @@ class RobertaEncoder(FairseqEncoder):
         return self.args.max_positions
 
 
-@register_model_architecture('roberta', 'roberta')
+@register_model_architecture('roberta_decode', 'roberta_decode')
 def base_architecture(args):
     args.encoder_layers = getattr(args, 'encoder_layers', 12)
     args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 768)
@@ -372,24 +503,77 @@ def base_architecture(args):
     args.encoder_layerdrop = getattr(args, 'encoder_layerdrop', 0.0)
 
 
-@register_model_architecture('roberta', 'roberta_base')
+    
+    args.decoder_embed_path = getattr(args, "decoder_embed_path", None)
+    args.decoder_embed_dim = getattr(args, "decoder_embed_dim", 768)
+    args.decoder_ffn_embed_dim = getattr(
+        args, "decoder_ffn_embed_dim", 3072
+    )
+    args.decoder_layers = getattr(args, "decoder_layers", 12)
+    args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 12)
+    args.decoder_normalize_before = getattr(args, "decoder_normalize_before", True)
+    args.decoder_learned_pos = getattr(args, "decoder_learned_pos", True)
+    args.attention_dropout = getattr(args, "attention_dropout", 0.1)
+    args.activation_dropout = getattr(args, "activation_dropout", 0.0)
+    args.activation_fn = getattr(args, "activation_fn", "relu")
+    args.dropout = getattr(args, "dropout", 0.1)
+    args.adaptive_softmax_cutoff = getattr(args, "adaptive_softmax_cutoff", None)
+    args.adaptive_softmax_dropout = getattr(args, "adaptive_softmax_dropout", 0)
+    args.share_decoder_input_output_embed = getattr(
+        args, "share_decoder_input_output_embed", True
+    )
+    args.share_all_embeddings = getattr(args, "share_all_embeddings", True)
+    args.no_token_positional_embeddings = getattr(
+        args, "no_token_positional_embeddings", False
+    )
+    args.adaptive_input = getattr(args, "adaptive_input", False)
+    args.no_cross_attention = getattr(args, "no_cross_attention", False)
+    args.cross_self_attention = getattr(args, "cross_self_attention", False)
+
+    args.decoder_output_dim = getattr(
+        args, "decoder_output_dim", args.decoder_embed_dim
+    )
+    args.decoder_input_dim = getattr(args, "decoder_input_dim", args.decoder_embed_dim)
+
+    args.no_scale_embedding = getattr(args, "no_scale_embedding", True)
+    args.layernorm_embedding = getattr(args, "layernorm_embedding", True)
+    args.tie_adaptive_weights = getattr(args, "tie_adaptive_weights", True)#不确定啊
+
+
+
+
+
+
+@register_model_architecture('roberta_decode', 'roberta_decode_base')
 def roberta_base_architecture(args):
     base_architecture(args)
 
 
-@register_model_architecture('roberta', 'roberta_large')
+@register_model_architecture('roberta_decode', 'roberta_decode_layer6')
 def roberta_large_architecture(args):
-    args.encoder_layers = getattr(args, 'encoder_layers', 24)
-    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 1024)
-    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 4096)
-    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 16)
+    args.decoder_layers = getattr(args, 'decoder_layers', 6)
     base_architecture(args)
 
 
-@register_model_architecture('roberta', 'xlm')
-def xlm_architecture(args):
-    args.encoder_layers = getattr(args, 'encoder_layers', 16)
-    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 1280)
-    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 1280*4)
-    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 16)
+@register_model_architecture('roberta_decode', 'roberta_decode_layer3')
+def roberta_large_architecture(args):
+    args.decoder_layers = getattr(args, 'decoder_layers', 3)
     base_architecture(args)
+
+
+# @register_model_architecture('roberta', 'roberta_large')
+# def roberta_large_architecture(args):
+#     args.encoder_layers = getattr(args, 'encoder_layers', 24)
+#     args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 1024)
+#     args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 4096)
+#     args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 16)
+#     base_architecture(args)
+
+
+# @register_model_architecture('roberta', 'xlm')
+# def xlm_architecture(args):
+#     args.encoder_layers = getattr(args, 'encoder_layers', 16)
+#     args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 1280)
+#     args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 1280*4)
+#     args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 16)
+#     base_architecture(args)

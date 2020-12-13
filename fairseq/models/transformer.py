@@ -775,7 +775,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 self_attn_mask = self.buffered_future_mask(x)
             else:
                 self_attn_mask = None
-
+            #print('???',x.shape,encoder_out.encoder_out.shape)
             x, layer_attn, _ = layer(
                 x,
                 encoder_out.encoder_out if encoder_out is not None else None,

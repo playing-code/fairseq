@@ -209,6 +209,17 @@ def train(args, trainer, task, epoch_itr):
 
     valid_subsets = args.valid_subset.split(",")
     should_stop = False
+
+    # end_of_epoch = not itr.has_next()
+    # valid_losses, should_stop = validate_and_save(
+    #         args, trainer, task, epoch_itr, valid_subsets, end_of_epoch, 1
+    #     )
+    # print('save ok...')
+    # valid_losses, should_stop = validate_and_save(
+    #         args, trainer, task, epoch_itr, valid_subsets, end_of_epoch, 2
+    #     )
+    # assert 1==0
+
     for i, samples in enumerate(progress):
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function("train_step-%d" % i):
             log_output = trainer.train_step(samples)
@@ -250,6 +261,9 @@ def train(args, trainer, task, epoch_itr):
 
 def validate_and_save(args, trainer, task, epoch_itr, valid_subsets, end_of_epoch):
     num_updates = trainer.get_num_updates()
+
+    #num_updates=number
+
     do_save = (
         args.save_interval_updates > 0
         and num_updates > 0
@@ -323,6 +337,7 @@ def validate(args, trainer, task, epoch_itr, subsets):
         progress.print(stats, tag=subset, step=trainer.get_num_updates())
 
         valid_losses.append(stats[args.best_checkpoint_metric])
+        #print('???',stats)
     return valid_losses
 
 

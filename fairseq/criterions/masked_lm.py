@@ -78,6 +78,7 @@ class MaskedLmLoss(FairseqCriterion):
         metrics.log_scalar('loss', loss_sum / sample_size / math.log(2), sample_size, round=3)
         metrics.log_derived('ppl', lambda meters: utils.get_perplexity(meters['loss'].avg))
 
+
     @staticmethod
     def logging_outputs_can_be_summed() -> bool:
         """

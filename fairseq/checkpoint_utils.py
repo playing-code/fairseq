@@ -385,6 +385,7 @@ def prune_state_dict(state_dict, args):
     )
 
     if not encoder_layers_to_keep and not decoder_layers_to_keep:
+        #print('nonononono')
         return state_dict
 
     # apply pruning

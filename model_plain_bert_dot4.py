@@ -75,7 +75,7 @@ class Plain_bert(nn.Module):#
         init_bert_params(self.dense)
         self.encoder=TransformerSentenceEncoder(
                 padding_idx=1,
-                vocab_size=50265,
+                vocab_size=32769,
                 num_encoder_layers=12,
                 embedding_dim=768,
                 ffn_embedding_dim=3072,
