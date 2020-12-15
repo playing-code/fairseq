@@ -73,26 +73,26 @@ def group_labels_func(labels, preds, group_keys):
     group_labels = {k: [] for k in all_keys}
     group_preds = {k: [] for k in all_keys}
     
-    # for l, p, k in zip(labels, preds, group_keys):
-    #     group_labels[k].append(l)
-    #     group_preds[k].append(p)
-
-    for p, k in zip(preds, group_keys):
+    for l, p, k in zip(labels, preds, group_keys):
+        group_labels[k].append(l)
         group_preds[k].append(p)
 
-    w=open('result_test2.txt','w')
-    #w2=open('temp_label.txt','w')
-    for k in sorted(all_keys):
-        mydict={i:group_preds[k][i] for i in range(len(group_preds[k]))}
-        mydict_sort=sorted(mydict.items(),key=lambda x : x[1],reverse=True)
-        mydict_sort2={mydict_sort[i][0]:i for i in range(len(mydict_sort)) }
-        mydict_sort2=[mydict_sort2[i]+1 for i in range(len(mydict_sort2))]
-        w.write(str(k)+' '+'['+','.join(str(item) for item in mydict_sort2)+']'+'\n')
-        #w2.write(str(k)+' '+'['+','.join(str(item) for item in group_labels[k])+']'+'\n')
+    # for p, k in zip(preds, group_keys):
+    #     group_preds[k].append(p)
 
-    # w2.close()
-    w.close()
-    print('write ok...')
+    # w=open('result_test2.txt','w')
+    # #w2=open('temp_label.txt','w')
+    # for k in sorted(all_keys):
+    #     mydict={i:group_preds[k][i] for i in range(len(group_preds[k]))}
+    #     mydict_sort=sorted(mydict.items(),key=lambda x : x[1],reverse=True)
+    #     mydict_sort2={mydict_sort[i][0]:i for i in range(len(mydict_sort)) }
+    #     mydict_sort2=[mydict_sort2[i]+1 for i in range(len(mydict_sort2))]
+    #     w.write(str(k)+' '+'['+','.join(str(item) for item in mydict_sort2)+']'+'\n')
+    #     #w2.write(str(k)+' '+'['+','.join(str(item) for item in group_labels[k])+']'+'\n')
+
+    # # w2.close()
+    # w.close()
+    # print('write ok...')
 
     all_labels = []
     all_preds = []
@@ -234,11 +234,11 @@ def test(model,args):#valid
                 # w.write('imp_index:'+str(imp_index[i])+' '+' '.join([str(logit[i][j]) for j in range(can_len[i][0])]))
                 # w.write('\n')
                 for j in range(can_len[i][0]):
-                    #assert len(label[i])==can_len[i][0]
-                    # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
-                    # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
-                    w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+'\n')
-                    print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j]))
+                    assert len(label[i])==can_len[i][0]
+                    w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j])+'\n')
+                    print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+' label: '+str(label[i][j]))
+                    # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j])+'\n')
+                    # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i][j]))
                     
                 # print('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i]))
                 # w.write('imp_index: '+str(imp_index[i])+' logit: '+str(logit[i])+' label: '+str(label[i])+'\n')
@@ -298,8 +298,8 @@ def exact_result3():
     x=1
     flag=''
     count=0
-    #for num in [30,90,150,300]:
-    for num in [20,40,60,80,100,120,140,160,180,200,220,240,260,280,300]:
+    for num in [30,90,150,300]:
+    #for num in [20,40,60,80,100,120,140,160,180,200,220,240,260,280,300]:
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/hf_'+str(num)+'.txt','r').readlines() 
         #f1=open('../data/res_roberta_dot4_abs_cat_fp16_add2_'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
         f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_'+str(num)+'_2.txt','r').readlines()
@@ -328,8 +328,8 @@ if __name__ == '__main__':
     # flag=sys.argv[1]
     # exact_result(flag)
     
-    exact_result3()
-    assert 1==0
+    # exact_result3()
+    # assert 1==0
 
 
 
@@ -376,7 +376,7 @@ if __name__ == '__main__':
     #print(model.state_dict()['score3.0.bias'])
 
     # roberta = RobertaModel.from_pretrained('./model/roberta.base', checkpoint_file='model.pt')
-    model_file=os.path.join(args.save_dir,args.model_file)
+    model_file=os.path.join(args.model_file)
 
     save_model=torch.load(model_file, map_location=lambda storage, loc: storage)
     
