@@ -302,13 +302,15 @@ def exact_result3():
     #for num in [20,40,60,80,100,120,140,160,180,200,220,240,260,280,300]:
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/hf_'+str(num)+'.txt','r').readlines() 
         #f1=open('../data/res_roberta_dot4_abs_cat_fp16_add2_'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
-        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/res_'+str(num)+'_2.txt','r').readlines()
+
+        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/dev_res_decode6_'+str(num)+'.txt','r').readlines()
+        #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/dev_res_'+str(num)+'.txt','r').readlines()
         for line in f1:
             line=line.strip().split(' ')
             logit=float(line[3])
             imp_index=int(line[1])
-            # label=int(float(line[5]))
-            # labels.append(label)
+            label=int(float(line[5]))
+            labels.append(label)
             preds.append(logit)
             imp_indexes.append(imp_index)
             if imp_index != flag:
@@ -328,8 +330,8 @@ if __name__ == '__main__':
     # flag=sys.argv[1]
     # exact_result(flag)
     
-    # exact_result3()
-    # assert 1==0
+    exact_result3()
+    assert 1==0
 
 
 

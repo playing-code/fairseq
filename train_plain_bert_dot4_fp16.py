@@ -141,12 +141,52 @@ def group_labels_func(labels, preds, group_keys):
 
     return all_labels, all_preds
 
+def all_gather(data):
+    """
+    Run all_gather on arbitrary picklable data (not necessarily tensors)
+    Args:
+        data: any picklable object
+    Returns:
+        list[data]: list of data gathered from each rank
+    """
+    if not dist.is_initialized() or dist.get_world_size() == 1:
+        return [data]
 
+    world_size = dist.get_world_size()
+    # serialized to a Tensor
+    buffer = pickle.dumps(data)
+    storage = torch.ByteStorage.from_buffer(buffer)
+    tensor = torch.ByteTensor(storage).to("cuda")
 
-def test(model,args):
-    preds = []
-    labels = []
-    imp_indexes = []
+    # obtain Tensor size of each rank
+    local_size = torch.LongTensor([tensor.numel()]).to("cuda")
+    size_list = [torch.LongTensor([0]).to("cuda") for _ in range(world_size)]
+    dist.all_gather(size_list, local_size)
+    size_list = [int(size.item()) for size in size_list]
+    max_size = max(size_list)
+
+    # receiving Tensor from all ranks
+    # we pad the tensor because torch all_gather does not support
+    # gathering tensors of different shapes
+    tensor_list = []
+    for _ in size_list:
+        tensor_list.append(torch.ByteTensor(size=(max_size,)).to("cuda"))
+    if local_size != max_size:
+        padding = torch.ByteTensor(size=(max_size - local_size,)).to("cuda")
+        tensor = torch.cat((tensor, padding), dim=0)
+    dist.all_gather(tensor_list, tensor)
+
+    data_list = []
+    for size, tensor in zip(size_list, tensor_list):
+        buffer = tensor.cpu().numpy().tobytes()[:size]
+        data_list.append(pickle.loads(buffer))
+
+    return data_list
+
+def test(model,args,cudaid):
+    preds = np.array([])
+    labels = np.array([])
+    imp_indexes = np.array([])
     metrics=['group_auc']
     test_file=os.path.join(args.data_dir, args.test_data_file)  
     preds = []
@@ -155,42 +195,51 @@ def test(model,args):
     feature_file=os.path.join(args.data_dir,args.feature_file)
     iterator=NewsIterator(batch_size=1, npratio=-1,feature_file=feature_file,field=args.field,fp16=True)
     print('test...')
-    cudaid=0
+    #cudaid=0
     #model = nn.DataParallel(model, device_ids=list(range(args.size)))
     step=0
     with torch.no_grad():
-        data_batch=iterator.load_test_data_from_file(test_file,None)
+        data_batch=iterator.load_test_data_from_file(test_file,None,rank=cudaid,size=args.size)
         batch_t=0
-        for  imp_index , user_index, his_id, candidate_id , label,_  in data_batch:
+        for  imp_index , user_index, his_id, candidate_id , label, _  in data_batch:
             batch_t+=len(candidate_id)
             his_id=his_id.cuda(cudaid)
             candidate_id= candidate_id.cuda(cudaid)
             logit=model(his_id,candidate_id,None,mode='validation')
-            # print('???',label_t,label)
-            # assert 1==0
-            logit=list(np.reshape(np.array(logit.cpu()), -1))
-            #print('???',label)
-            label=list(np.reshape(np.array(label), -1))
-            imp_index=list(np.reshape(np.array(imp_index), -1))
+
+            #print('???',his_id.shape,logit.shape,candidate_id.shape)
+            # logit=list(np.reshape(np.array(logit.data.cpu()), -1))
+            # label=list(np.reshape(np.array(label), -1))
+            # imp_index=list(np.reshape(np.array(imp_index), -1))
+
+            logit=np.reshape(np.array(logit.data.cpu()), -1)
+            label=np.reshape(np.array(label), -1)
+            #imp_index=np.reshape(np.array(imp_index), -1)
 
             assert len(imp_index)==1
-            imp_index=imp_index*len(logit)
+            #imp_index=imp_index*len(logit)
+            imp_index=np.repeat(imp_index,len(logit))
 
-            assert len(logit)==len(label)
+            assert len(logit)==len(label),(len(logit),len(label))
             assert len(logit)==len(imp_index)
-            assert np.sum(np.array(label))!=0
+            assert np.sum(label)!=0
 
 
-            labels.extend(label)
-            preds.extend(logit)
-            imp_indexes.extend(imp_index)
+            # labels.extend(label)
+            # preds.extend(logit)
+            # imp_indexes.extend(imp_index)
+            labels=np.concatenate((labels,label),axis=0)
+            preds=np.concatenate((preds,logit),axis=0)
+            imp_indexes=np.concatenate((imp_indexes,imp_index),axis=0)
             step+=1
             if step%100==0:
-                print('all data: ',len(labels))
+                print('all data: ',len(labels),cudaid)
+                #return labels,preds,imp_indexes
 
-    group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
-    res = cal_metric(group_labels, group_preds, metrics)
-    return res['group_auc']
+    # group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
+    # res = cal_metric(group_labels, group_preds, metrics)
+    # return res['group_auc']
+    return labels,preds,imp_indexes
 
 def train(cudaid, args,model):
 
@@ -286,13 +335,23 @@ def train(cudaid, args,model):
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%500==0 and cudaid==0:
+                if iteration%500==0 :
                     torch.cuda.empty_cache()
                     model.eval()
+                    labels,preds,imp_indexes = test(model,args,cudaid)
+                    pred_pkl={'labels':labels,'preds':preds,'imp_indexes':imp_indexes}
+                    all_preds=all_gather(pred_pkl)
                     if cudaid==0:
-                        auc=test(model,args)
-                        print(auc)
-                        writer.add_scalar('auc/valid', auc, step)
+                        labels=np.concatenate([ele['labels'] for ele in all_preds], axis=0)
+                        preds=np.concatenate([ele['preds'] for ele in all_preds], axis=0)
+                        imp_indexes=np.concatenate([ele['imp_indexes'] for ele in all_preds], axis=0)
+                        print('valid labels: ',len(labels))
+                        group_labels, group_preds = group_labels_func(labels, preds, imp_indexes)
+                        res = cal_metric(group_labels, group_preds, ['group_auc'])
+                        auc = res['group_auc']
+                        #auc=test(model,args)
+                        print('valid auc: ', auc)
+                        writer.add_scalar('valid/auc', auc, step)
                         step+=1
                         if auc>best_score:
                             torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))

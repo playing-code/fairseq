@@ -718,7 +718,7 @@ class NewsIterator(object):
                 cnt = 0
 
 
-    def load_test_data_from_file(self, infile,length):
+    def load_test_data_from_file(self, infile,length,rank=None,size=None):
         """Read and parse data from a file.
         
         Args:
@@ -747,7 +747,14 @@ class NewsIterator(object):
         can_lens=[]
         #print('???batch_size',batch_size)
 
-        rd=open(infile, "r").readlines()
+        if rank==None:
+            rd=open(infile, "r").readlines()
+        else:
+            rd=open(infile, "r").readlines()
+            length_t=int(len(rd)/size)+1
+            rd=rd[rank*length_t:(rank+1)*length_t]
+
+        #rd=open(infile, "r").readlines()
         #with open(infile, "r") as rd:
         for line in rd:
 
