@@ -49,7 +49,7 @@ torch.cuda.manual_seed(1)
 metrics=['group_auc','mean_mrr','ndcg@5;10']
 lr=1e-4
 T_warm=5000
-all_iteration=34431
+all_iteration=50000
 
 
 def parse_args():
@@ -298,7 +298,7 @@ def train(cudaid, args,model):
     # model.eval()
     # auc=test(model,args)
 
-    for epoch in range(0,10):
+    for epoch in range(0,200):
     #while True:
         all_loss=0
         all_batch=0
@@ -335,7 +335,7 @@ def train(cudaid, args,model):
                     writer.add_scalar('Loss/train', accum_batch_loss/accumulation_steps, iteration)
                     writer.add_scalar('Ltr/train', optimizer.param_groups[0]['lr'], iteration)
                 accum_batch_loss=0
-                if iteration%500==0 :
+                if iteration%10000==0 :
                     torch.cuda.empty_cache()
                     model.eval()
                     labels,preds,imp_indexes = test(model,args,cudaid)
@@ -354,13 +354,15 @@ def train(cudaid, args,model):
                         writer.add_scalar('valid/auc', auc, step)
                         step+=1
                         if auc>best_score:
-                            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
+                            #torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
                             best_score=auc
                             print('best score: ',best_score)
+                        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_'+str(iteration)+'.pkl'))
                     torch.cuda.empty_cache()
                     model.train()
-        if cudaid==0:
-            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
+                    
+        # if cudaid==0:
+        #     torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
     #w.close()
             
 
