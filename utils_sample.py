@@ -272,7 +272,7 @@ class NewsIterator(object):
         his_size (int): max clicked news num in user click history.
     """
 
-    def __init__(self, batch_size, npratio, feature_file,history_file='',abs_file='',field=None, fp16=False,col_spliter=" ", ID_spliter="%",mode='train'):
+    def __init__(self, batch_size, npratio, feature_file,history_file='',abs_file='',field=None, fp16=True,col_spliter=" ", ID_spliter="%",mode='train'):
         """Initialize an iterator. Create necessary placeholders for the model.
         
         Args:
