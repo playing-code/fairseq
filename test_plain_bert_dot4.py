@@ -298,12 +298,12 @@ def exact_result3():
     x=1
     flag=''
     count=0
-    for num in [30,90,150,300]:
+    for num in [20,40,60,90,120,150,240,300]:
     #for num in [20,40,60,80,100,120,140,160,180,200,220,240,260,280,300]:
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/hf_'+str(num)+'.txt','r').readlines() 
         #f1=open('../data/res_roberta_dot4_abs_cat_fp16_add2_'+str(num)+'.txt','r').readlines() #res_roberta_dot_abstract_63.txt
 
-        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/dev_res_decode6_'+str(num)+'.txt','r').readlines()
+        f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/dev_res_decoder220_'+str(num)+'.txt','r').readlines()
         #f1=open('/home/dihe/cudnn_file/recommender_shuqi/MIND_data/dev_res_'+str(num)+'.txt','r').readlines()
         for line in f1:
             line=line.strip().split(' ')

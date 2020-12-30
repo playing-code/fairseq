@@ -268,7 +268,7 @@ def train(model,optimizer, args):
                         step+=1
                     torch.cuda.empty_cache()
                     model.train()
-        torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
+        #torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
     #w.close()
             
 

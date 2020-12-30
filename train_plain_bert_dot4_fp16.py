@@ -69,6 +69,7 @@ def parse_args():
                     help="local_rank for distributed training on gpus")
     parser.add_argument("--feature_file",
                     type=str,
+                    default=None,
                     help="local_rank for distributed training on gpus")
     parser.add_argument("--test_feature_file",
                     type=str,
@@ -192,7 +193,10 @@ def test(model,args,cudaid):
     preds = []
     labels = []
     imp_indexes = []
-    feature_file=os.path.join(args.data_dir,args.feature_file)
+    if args.test_feature_file is not None:
+        feature_file=os.path.join(args.data_dir,args.test_feature_file)
+    else:
+        feature_file=os.path.join(args.data_dir,args.feature_file)
     iterator=NewsIterator(batch_size=1, npratio=-1,feature_file=feature_file,field=args.field,fp16=True)
     print('test...')
     #cudaid=0
@@ -354,12 +358,19 @@ def train(cudaid, args,model):
                         writer.add_scalar('valid/auc', auc, step)
                         step+=1
                         if auc>best_score:
-                            #torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
+                            torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_best.pkl'))
                             best_score=auc
                             print('best score: ',best_score)
                         torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot_'+str(iteration)+'.pkl'))
                     torch.cuda.empty_cache()
                     model.train()
+                if iteration >=all_iteration:
+                    break
+        
+        if iteration >=all_iteration:
+            break
+
+
                     
         # if cudaid==0:
         #     torch.save(model.state_dict(), os.path.join(args.save_dir,'Plain_robert_dot'+str(epoch)+'.pkl'))
